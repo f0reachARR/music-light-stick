@@ -97,10 +97,10 @@ private:
   }
 
   void max_filter_frequency(
-    const float * data, float * max_output, int length, int half_filter_size)
+    const std::vector<float> & data, std::vector<float> & max_output, int half_filter_size)
   {
     const std::size_t filter_size = half_filter_size * 2 + 1;
-    max_filter(const_cast<float *>(data), length, filter_size, max_output);
+    max_filter(data, filter_size, max_output);
   }
 
   void extract_internal()
@@ -188,34 +188,31 @@ public:
     filter_index_ = 0;
   }
 
-  const float * get_mags() const
+  const std::vector<float> & get_mags() const
   {
     if (filter_index_ == config_.filterSizeTime - 1) {
-      return mags_[config_.filterSizeTime - 2].data();
+      return mags_[config_.filterSizeTime - 2];
     } else {
-      return mags_[filter_index_ - 1].data();
+      return mags_[filter_index_ - 1];
     }
   }
 
-  ExtractedEventPoints * extract(float * fft_out, int audio_block_index)
+  void extract(const float * fft_out, int audio_block_index)
   {
     audio_block_index_ = audio_block_index;
 
     int magnitude_index = 0;
     for (int j = 0; j < config_.audioBlockSize; j += 2) {
+      mags_.at(filter_index_).at(magnitude_index) = std::hypot(fft_out[j], fft_out[j + 1]);
       if (config_.sqrtMagnitude) {
-        mags_[filter_index_][magnitude_index] =
-          std::sqrt(fft_out[j] * fft_out[j] + fft_out[j + 1] * fft_out[j + 1]);
-      } else {
-        mags_[filter_index_][magnitude_index] =
-          fft_out[j] * fft_out[j] + fft_out[j + 1] * fft_out[j + 1];
+        mags_.at(filter_index_).at(magnitude_index) =
+          std::sqrt(mags_.at(filter_index_).at(magnitude_index));
       }
       ++magnitude_index;
     }
 
     max_filter_frequency(
-      mags_[filter_index_].data(), maxes_[filter_index_].data(), config_.audioBlockSize / 2,
-      config_.halfFilterSizeFrequency);
+      mags_.at(filter_index_), maxes_.at(filter_index_), config_.halfFilterSizeFrequency);
 
     if (filter_index_ == config_.filterSizeTime - 1) {
       extract_internal();
@@ -223,9 +220,9 @@ public:
     } else {
       ++filter_index_;
     }
-
-    return &event_points_;
   }
+
+  ExtractedEventPoints & event_points() { return event_points_; }
 };
 
 }  // namespace olaf

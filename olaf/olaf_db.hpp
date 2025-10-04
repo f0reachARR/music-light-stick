@@ -88,19 +88,19 @@ public:
      * @brief Find fingerprints across all registered audio files
      * @param start_key Start hash (inclusive)
      * @param stop_key Stop hash (inclusive)
-     * @param results Output array (timestamp << 32 | audio_id)
-     * @param results_size Maximum results
+     * @param results Output vector (timestamp << 32 | audio_id)
+     * @param max_results Maximum results to find
      * @return Number of results found
      */
   std::size_t find(
-    std::uint64_t start_key, std::uint64_t stop_key, std::uint64_t * results,
-    std::size_t results_size) const
+    std::uint64_t start_key, std::uint64_t stop_key, std::vector<std::uint64_t> & results,
+    std::size_t max_results) const
   {
-    std::size_t results_index = 0;
+    results.clear();
 
     // Search through each audio file
     for (const auto & audio_ref : audio_refs_) {
-      const std::uint64_t * match = nullptr;
+      auto match_it = audio_ref.fingerprints.end();
 
       // Binary search for any key in range within this audio's fingerprints
       for (std::uint64_t current_key = start_key; current_key <= stop_key; ++current_key) {
@@ -112,14 +112,14 @@ public:
           [](std::uint64_t a, std::uint64_t b) { return (a >> 16) < (b >> 16); });
 
         if (it != audio_ref.fingerprints.end() && ((*it) >> 16) == (packed_key >> 16)) {
-          match = &(*it);
+          match_it = it;
           break;
         }
       }
 
-      if (match != nullptr) {
+      if (match_it != audio_ref.fingerprints.end()) {
         // Find all collisions (same hash range, different timestamps)
-        const std::size_t index = match - audio_ref.fingerprints.data();
+        const std::size_t index = std::distance(audio_ref.fingerprints.begin(), match_it);
 
         // Search backwards from match
         for (std::size_t i = index; i < audio_ref.fingerprints.size(); --i) {
@@ -128,12 +128,12 @@ public:
           unpack(audio_ref.fingerprints[i], ref_hash, ref_t);
 
           if (ref_hash >= start_key && ref_hash <= stop_key) {
-            if (results_index < results_size) {
+            if (results.size() < max_results) {
               const std::uint64_t t = ref_t;
-              results[results_index++] = (t << 32) | audio_ref.audio_id;
+              results.push_back((t << 32) | audio_ref.audio_id);
             } else {
-              std::fprintf(stderr, "Warning: Max results %zu reached\n", results_size);
-              return results_index;
+              std::fprintf(stderr, "Warning: Max results %zu reached\n", max_results);
+              return results.size();
             }
           } else {
             break;
@@ -149,12 +149,12 @@ public:
           unpack(audio_ref.fingerprints[i], ref_hash, ref_t);
 
           if (ref_hash >= start_key && ref_hash <= stop_key) {
-            if (results_index < results_size) {
+            if (results.size() < max_results) {
               const std::uint64_t t = ref_t;
-              results[results_index++] = (t << 32) | audio_ref.audio_id;
+              results.push_back((t << 32) | audio_ref.audio_id);
             } else {
-              std::fprintf(stderr, "Warning: Max results %zu reached\n", results_size);
-              return results_index;
+              std::fprintf(stderr, "Warning: Max results %zu reached\n", max_results);
+              return results.size();
             }
           } else {
             break;
@@ -163,7 +163,7 @@ public:
       }
     }
 
-    return results_index;
+    return results.size();
   }
 
   /**

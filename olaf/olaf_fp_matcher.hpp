@@ -109,7 +109,7 @@ private:
   {
     const int range = config_.searchRange;
     const std::size_t number_of_results = db_.find(
-      query_fingerprint_hash - range, query_fingerprint_hash + range, db_results_.data(),
+      query_fingerprint_hash - range, query_fingerprint_hash + range, db_results_,
       config_.maxDBCollisions);
 
     if (config_.verbose) {
@@ -130,10 +130,9 @@ private:
         query_fingerprint_hash, number_of_results, range, config_.maxDBCollisions);
     }
 
-    for (std::size_t i = 0; i < number_of_results && i < config_.maxDBCollisions; ++i) {
-      const std::uint32_t reference_fingerprint_t1 =
-        static_cast<std::uint32_t>(db_results_[i] >> 32);
-      const std::uint32_t match_identifier = static_cast<std::uint32_t>(db_results_[i]);
+    for (const auto & db_result : db_results_) {
+      const std::uint32_t reference_fingerprint_t1 = static_cast<std::uint32_t>(db_result >> 32);
+      const std::uint32_t match_identifier = static_cast<std::uint32_t>(db_result);
 
       if (config_.verbose) {
         const int delta =
@@ -167,25 +166,26 @@ public:
   FPMatcher(const Config & config, DB & db, MatchResultCallback callback)
   : config_(config),
     db_(db),
-    db_results_(config.maxDBCollisions),
     result_callback_(std::move(callback)),
     last_print_at_(0)
   {
+    db_results_.reserve(config.maxDBCollisions);
   }
 
-  void match(ExtractedFingerprints * fingerprints)
+  void match(ExtractedFingerprints & fingerprints)
   {
-    for (std::size_t i = 0; i < fingerprints->fingerprint_index; ++i) {
-      const auto & f = fingerprints->fingerprints[i];
-      const std::uint64_t hash = f.calculate_hash();
-      match_single_fingerprint(f.time_index1, hash);
+    auto first = fingerprints.fingerprints.begin();
+    auto last = first + fingerprints.fingerprint_index;
+
+    for (auto it = first; it != last; ++it) {
+      const std::uint64_t hash = it->calculate_hash();
+      match_single_fingerprint(it->time_index1, hash);
     }
 
-    if (fingerprints->fingerprint_index > 0 && config_.printResultEvery != 0) {
+    if (fingerprints.fingerprint_index > 0 && config_.printResultEvery != 0) {
       const int print_result_every = static_cast<int>(
         (config_.printResultEvery * config_.audioSampleRate) / config_.audioStepSize);
-      const int current_query_time =
-        fingerprints->fingerprints[fingerprints->fingerprint_index - 1].time_index3;
+      const int current_query_time = (last - 1)->time_index3;
 
       if (current_query_time - last_print_at_ > print_result_every) {
         print_header();
@@ -194,13 +194,12 @@ public:
       }
     }
 
-    if (fingerprints->fingerprint_index > 0 && config_.keepMatchesFor != 0) {
-      const int current_query_time =
-        fingerprints->fingerprints[fingerprints->fingerprint_index - 1].time_index3;
+    if (fingerprints.fingerprint_index > 0 && config_.keepMatchesFor != 0) {
+      const int current_query_time = (last - 1)->time_index3;
       remove_old_matches(current_query_time);
     }
 
-    fingerprints->fingerprint_index = 0;
+    fingerprints.fingerprint_index = 0;
   }
 
   static void print_header()
@@ -220,26 +219,26 @@ public:
 
   void print_results()
   {
-    std::vector<MatchResult *> match_results;
+    std::vector<std::reference_wrapper<const MatchResult>> match_results;
     match_results.reserve(config_.maxResults);
 
-    for (auto & pair : result_hash_table_) {
-      auto & match = pair.second;
+    for (const auto & pair : result_hash_table_) {
+      const auto & match = pair.second;
 
       if (match.match_count >= config_.minMatchCount) {
         if (match_results.size() >= config_.maxResults) {
           std::sort(
             match_results.begin(), match_results.end(),
-            [](const MatchResult * a, const MatchResult * b) {
-              return b->match_count < a->match_count;
+            [](const MatchResult & a, const MatchResult & b) {
+              return b.match_count < a.match_count;
             });
 
-          const int current_least = match_results.back()->match_count;
+          const int current_least = match_results.back().get().match_count;
           if (match.match_count > current_least) {
-            match_results.back() = &match;
+            match_results.back() = std::cref(match);
           }
         } else {
-          match_results.push_back(&match);
+          match_results.push_back(std::cref(match));
         }
       }
     }
@@ -247,28 +246,26 @@ public:
     if (!match_results.empty()) {
       std::sort(
         match_results.begin(), match_results.end(),
-        [](const MatchResult * a, const MatchResult * b) {
-          return b->match_count < a->match_count;
-        });
+        [](const MatchResult & a, const MatchResult & b) { return b.match_count < a.match_count; });
     }
 
-    for (const auto * match : match_results) {
-      const float seconds_per_block =
-        static_cast<float>(config_.audioStepSize) / static_cast<float>(config_.audioSampleRate);
-      const float time_delta =
-        seconds_per_block * (match->query_fingerprint_t1 - match->reference_fingerprint_t1);
+    const float seconds_per_block =
+      static_cast<float>(config_.audioStepSize) / static_cast<float>(config_.audioSampleRate);
 
-      const float reference_start = match->first_reference_fingerprint_t1 * seconds_per_block;
-      const float reference_stop = match->last_reference_fingerprint_t1 * seconds_per_block;
+    for (const auto & match_ref : match_results) {
+      const auto & match = match_ref.get();
+      const float time_delta =
+        seconds_per_block * (match.query_fingerprint_t1 - match.reference_fingerprint_t1);
+
+      const float reference_start = match.first_reference_fingerprint_t1 * seconds_per_block;
+      const float reference_stop = match.last_reference_fingerprint_t1 * seconds_per_block;
 
       if ((reference_stop - reference_start) >= config_.minMatchTimeDiff) {
-        const float query_start =
-          match->first_reference_fingerprint_t1 * seconds_per_block + time_delta;
-        const float query_stop =
-          match->last_reference_fingerprint_t1 * seconds_per_block + time_delta;
+        const float query_start = match.first_reference_fingerprint_t1 * seconds_per_block + time_delta;
+        const float query_stop = match.last_reference_fingerprint_t1 * seconds_per_block + time_delta;
 
         result_callback_(
-          match->match_count, query_start, query_stop, match->match_identifier, reference_start,
+          match.match_count, query_start, query_stop, match.match_identifier, reference_start,
           reference_stop);
       }
     }

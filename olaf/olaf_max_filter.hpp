@@ -22,6 +22,8 @@
 #include <cassert>
 #include <cmath>
 #include <cstddef>
+#include <cstdio>
+#include <vector>
 
 namespace olaf
 {
@@ -85,12 +87,20 @@ constexpr std::array<std::size_t, 512> perceptual_max_idx = {
   512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512,
   512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512};
 
+// for speed, there is a limit on the number of bins to evaluate
+constexpr std::size_t van_herk_filter_width = 103;
+
+// the naive implementation has a changing and small filter width
+// it is not that easy to optimize. From this bin on the filter is replaced
+// by a filter with a fixed width starting from this bin
+constexpr std::size_t naive_implementation_stop_bin = 82;
 /**
  * @brief A naive max filter implementation for reference.
  */
 inline void max_filter_naive(
-  float * array, std::size_t array_size, std::size_t filter_width, float * maxvalues)
+  const std::vector<float> & array, std::size_t filter_width, std::vector<float> & maxvalues)
 {
+  const std::size_t array_size = array.size();
   const std::size_t half_filter_width = filter_width / 2;
   for (std::size_t i = 0; i < array_size; ++i) {
     const std::size_t start_index = (i >= half_filter_width) ? (i - half_filter_width) : 0;
@@ -108,28 +118,29 @@ inline void max_filter_naive(
  * Based on https://github.com/lemire/runningmaxmin (LGPL)
  */
 inline void max_filter_van_herk_gil_werman(
-  float * array, std::size_t array_size, std::size_t width, float * maxvalues)
+  const std::vector<float> & array, std::size_t offset, std::size_t array_size,
+  std::vector<float> & maxvalues, std::size_t output_offset)
 {
-  std::array<float, 256> R;
-  std::array<float, 256> S;
+  static std::array<float, van_herk_filter_width> R = {0.0f};
+  static std::array<float, van_herk_filter_width> S = {0.0f};
 
-  for (std::size_t j = 0; j < array_size - width + 1; j += width) {
-    const std::size_t Rpos = std::min(j + width - 1, array_size - 1);
-    R[0] = array[Rpos];
+  for (std::size_t j = 0; j < array_size - van_herk_filter_width + 1; j += van_herk_filter_width) {
+    const std::size_t Rpos = std::min(j + van_herk_filter_width - 1, array_size - 1);
+    R[0] = array.at(offset + Rpos);
 
     for (std::size_t i = Rpos - 1; i + 1 > j; --i) {
-      R[Rpos - i] = std::max(R[Rpos - i - 1], array[i]);
+      R.at(Rpos - i) = std::max(R.at(Rpos - i - 1), array.at(offset + i));
     }
 
-    S[0] = array[Rpos];
-    const std::size_t m1 = std::min(j + 2 * width - 1, array_size);
+    S[0] = array.at(offset + Rpos);
+    const std::size_t m1 = std::min(j + 2 * van_herk_filter_width - 1, array_size);
 
     for (std::size_t i = Rpos + 1; i < m1; ++i) {
-      S[i - Rpos] = std::max(S[i - Rpos - 1], array[i]);
+      S.at(i - Rpos) = std::max(S.at(i - Rpos - 1), array.at(offset + i));
     }
 
     for (std::size_t i = 0; i < m1 - Rpos; ++i) {
-      maxvalues[j + i] = std::max(S[i], R[(Rpos - j + 1) - i - 1]);
+      maxvalues.at(output_offset + j + i) = std::max(S.at(i), R.at((Rpos - j + 1) - i - 1));
     }
   }
 }
@@ -138,16 +149,15 @@ inline void max_filter_van_herk_gil_werman(
  * @brief Perceptually-weighted max filter optimized for 512-sized arrays.
  */
 inline void max_filter(
-  float * array, std::size_t array_size, std::size_t filter_width, float * maxvalues)
+  const std::vector<float> & array, std::size_t filter_width, std::vector<float> & maxvalues)
 {
   // filter_width is ignored; perceptual indices are used instead
   (void)filter_width;
 
+  const std::size_t array_size = array.size();
+
   // This filter only works for 512 sized arrays
   assert(array_size == 512);
-
-  constexpr std::size_t van_herk_filter_width = 103;
-  constexpr std::size_t naive_implementation_stop_bin = 82;
 
   // Process lower frequency bins with naive implementation (varying filter widths)
   for (std::size_t f = 9; f < naive_implementation_stop_bin; ++f) {
@@ -161,17 +171,15 @@ inline void max_filter(
       max_value = std::max(max_value, array[j]);
     }
 
-    maxvalues[f] = max_value;
+    maxvalues.at(f) = max_value;
   }
 
   // Process higher frequency bins with Van Herk filter (fixed width)
-  float * max_values_shifted =
-    &maxvalues[naive_implementation_stop_bin + (van_herk_filter_width / 2)];
-  float * to_filter = &array[naive_implementation_stop_bin];
+  const std::size_t output_offset = naive_implementation_stop_bin + (van_herk_filter_width / 2);
+  const std::size_t input_offset = naive_implementation_stop_bin;
   const std::size_t to_filter_size = array_size - naive_implementation_stop_bin;
 
-  max_filter_van_herk_gil_werman(
-    to_filter, to_filter_size, van_herk_filter_width, max_values_shifted);
+  max_filter_van_herk_gil_werman(array, input_offset, to_filter_size, maxvalues, output_offset);
 }
 
 }  // namespace olaf

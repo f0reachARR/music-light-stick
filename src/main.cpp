@@ -79,7 +79,7 @@ int main(void)
     1, olaf_db_mem_fps, sizeof(olaf_db_mem_fps) / sizeof(olaf_db_mem_fps[0]));
   while (1) {
     auto buffer = pdm_input.read();
-    olaf_recognizer.process_audio(buffer.as<uint16_t>(), buffer.count<uint16_t>());
+    olaf_recognizer.process_audio(buffer.as<uint16_t>());
     printf(".");
   }
   return 0;

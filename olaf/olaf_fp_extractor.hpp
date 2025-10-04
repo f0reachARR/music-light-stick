@@ -134,13 +134,13 @@ private:
     return a_point.time_index - b_point.time_index;
   }
 
-  ExtractedFingerprints * extract_three(ExtractedEventPoints * event_points, int audio_block_index)
+  ExtractedFingerprints & extract_three(ExtractedEventPoints & event_points, int audio_block_index)
   {
-    for (int i = 0; i < event_points->event_point_index; ++i) {
-      const int t1 = event_points->event_points[i].time_index;
-      const int f1 = event_points->event_points[i].frequency_bin;
-      const float m1 = event_points->event_points[i].magnitude;
-      const int u1 = event_points->event_points[i].usages;
+    for (int i = 0; i < event_points.event_point_index; ++i) {
+      const int t1 = event_points.event_points[i].time_index;
+      const int f1 = event_points.event_points[i].frequency_bin;
+      const float m1 = event_points.event_points[i].magnitude;
+      const int u1 = event_points.event_points[i].usages;
 
       if (f1 == 0 && t1 == 0) break;
       if (u1 > config_.maxEventPointUsages) break;
@@ -148,11 +148,11 @@ private:
       const int diff_to_current_time = audio_block_index - config_.maxTimeDistance;
       if (t1 > diff_to_current_time) break;
 
-      for (int j = i + 1; j < event_points->event_point_index; ++j) {
-        const int t2 = event_points->event_points[j].time_index;
-        const int f2 = event_points->event_points[j].frequency_bin;
-        const float m2 = event_points->event_points[j].magnitude;
-        const int u2 = event_points->event_points[j].usages;
+      for (int j = i + 1; j < event_points.event_point_index; ++j) {
+        const int t2 = event_points.event_points[j].time_index;
+        const int f2 = event_points.event_points[j].frequency_bin;
+        const float m2 = event_points.event_points[j].magnitude;
+        const int u2 = event_points.event_points[j].usages;
 
         int f_diff = std::abs(f1 - f2);
         int t_diff = t2 - t1;
@@ -168,11 +168,11 @@ private:
           f_diff >= config_.minFreqDistance && f_diff <= config_.maxFreqDistance) {
           assert(t2 > t1);
 
-          for (int k = j + 1; k < event_points->event_point_index; ++k) {
-            const int t3 = event_points->event_points[k].time_index;
-            const int f3 = event_points->event_points[k].frequency_bin;
-            const float m3 = event_points->event_points[k].magnitude;
-            const int u3 = event_points->event_points[k].usages;
+          for (int k = j + 1; k < event_points.event_point_index; ++k) {
+            const int t3 = event_points.event_points[k].time_index;
+            const int f3 = event_points.event_points[k].frequency_bin;
+            const float m3 = event_points.event_points[k].magnitude;
+            const int u3 = event_points.event_points[k].usages;
 
             if (u3 > config_.maxEventPointUsages) break;
             if (t_diff > config_.maxTimeDistance) break;
@@ -208,9 +208,9 @@ private:
                 fp.magnitude2 = m2;
                 fp.magnitude3 = m3;
 
-                event_points->event_points[i].usages++;
-                event_points->event_points[j].usages++;
-                event_points->event_points[k].usages++;
+                event_points.event_points[i].usages++;
+                event_points.event_points[j].usages++;
+                event_points.event_points[k].usages++;
 
                 if (config_.verbose) {
                   std::fprintf(
@@ -225,16 +225,16 @@ private:
         }
       }
     }
-    return &fingerprints_;
+    return fingerprints_;
   }
 
-  ExtractedFingerprints * extract_two(ExtractedEventPoints * event_points, int audio_block_index)
+  ExtractedFingerprints & extract_two(ExtractedEventPoints & event_points, int audio_block_index)
   {
-    for (int i = 0; i < event_points->event_point_index; ++i) {
-      const int t1 = event_points->event_points[i].time_index;
-      const int f1 = event_points->event_points[i].frequency_bin;
-      const float m1 = event_points->event_points[i].magnitude;
-      const int u1 = event_points->event_points[i].usages;
+    for (int i = 0; i < event_points.event_point_index; ++i) {
+      const int t1 = event_points.event_points[i].time_index;
+      const int f1 = event_points.event_points[i].frequency_bin;
+      const float m1 = event_points.event_points[i].magnitude;
+      const int u1 = event_points.event_points[i].usages;
 
       if (f1 == 0 && t1 == 0) break;
       if (u1 > config_.maxEventPointUsages) break;
@@ -242,11 +242,11 @@ private:
       const int diff_to_current_time = audio_block_index - config_.maxTimeDistance;
       if (t1 > diff_to_current_time) break;
 
-      for (int j = i + 1; j < event_points->event_point_index; ++j) {
-        const int t2 = event_points->event_points[j].time_index;
-        const int f2 = event_points->event_points[j].frequency_bin;
-        const float m2 = event_points->event_points[j].magnitude;
-        const int u2 = event_points->event_points[j].usages;
+      for (int j = i + 1; j < event_points.event_point_index; ++j) {
+        const int t2 = event_points.event_points[j].time_index;
+        const int f2 = event_points.event_points[j].frequency_bin;
+        const float m2 = event_points.event_points[j].magnitude;
+        const int u2 = event_points.event_points[j].usages;
 
         const int f_diff = std::abs(f1 - f2);
         const int t_diff = t2 - t1;
@@ -283,8 +283,8 @@ private:
             fp.magnitude2 = m2;
             fp.magnitude3 = m2;
 
-            event_points->event_points[i].usages++;
-            event_points->event_points[j].usages++;
+            event_points.event_points[i].usages++;
+            event_points.event_points[j].usages++;
 
             if (config_.verbose) {
               fp.print();
@@ -297,7 +297,7 @@ private:
         }
       }
     }
-    return &fingerprints_;
+    return fingerprints_;
   }
 
 public:
@@ -311,13 +311,13 @@ public:
 
   std::size_t get_total() const { return total_fp_extracted_; }
 
-  ExtractedFingerprints * extract(ExtractedEventPoints * event_points, int audio_block_index)
+  void extract(ExtractedEventPoints & event_points, int audio_block_index)
   {
     if (config_.verbose) {
       std::fprintf(stderr, "Combining event points into fingerprints:\n");
-      for (int i = 0; i < event_points->event_point_index; ++i) {
+      for (int i = 0; i < event_points.event_point_index; ++i) {
         std::fprintf(stderr, "\tidx: %d, ", i);
-        event_points->event_points[i].print();
+        event_points.event_points[i].print();
       }
     }
 
@@ -330,27 +330,27 @@ public:
     }
 
     const int cutoff_time =
-      event_points->event_points[event_points->event_point_index - 1].time_index -
+      event_points.event_points[event_points.event_point_index - 1].time_index -
       config_.maxTimeDistance;
     const int max_event_point_usages = config_.maxEventPointUsages;
 
-    for (int i = 0; i < event_points->event_point_index; ++i) {
+    for (int i = 0; i < event_points.event_point_index; ++i) {
       if (
-        event_points->event_points[i].time_index <= cutoff_time ||
-        event_points->event_points[i].usages == max_event_point_usages) {
-        event_points->event_points[i].time_index = (1 << 23);
-        event_points->event_points[i].frequency_bin = 0;
-        event_points->event_points[i].magnitude = 0;
+        event_points.event_points[i].time_index <= cutoff_time ||
+        event_points.event_points[i].usages == max_event_point_usages) {
+        event_points.event_points[i].time_index = (1 << 23);
+        event_points.event_points[i].frequency_bin = 0;
+        event_points.event_points[i].magnitude = 0;
       }
     }
 
     std::qsort(
-      event_points->event_points.data(), config_.maxEventPoints, sizeof(EventPoint),
+      event_points.event_points.data(), config_.maxEventPoints, sizeof(EventPoint),
       compare_event_points);
 
-    for (int i = 0; i < event_points->event_point_index; ++i) {
-      if (event_points->event_points[i].time_index == (1 << 23)) {
-        event_points->event_point_index = i;
+    for (int i = 0; i < event_points.event_point_index; ++i) {
+      if (event_points.event_points[i].time_index == (1 << 23)) {
+        event_points.event_point_index = i;
         break;
       }
     }
@@ -359,15 +359,15 @@ public:
 
     if (config_.verbose) {
       std::fprintf(
-        stderr, "New EP index %d, cutoffTime %d\n", event_points->event_point_index, cutoff_time);
-      for (int i = 0; i < event_points->event_point_index; ++i) {
+        stderr, "New EP index %d, cutoffTime %d\n", event_points.event_point_index, cutoff_time);
+      for (int i = 0; i < event_points.event_point_index; ++i) {
         std::fprintf(stderr, "idx:%d, ", i);
-        event_points->event_points[i].print();
+        event_points.event_points[i].print();
       }
     }
-
-    return &fingerprints_;
   }
+
+  ExtractedFingerprints & get_fingerprints() { return fingerprints_; }
 };
 
 }  // namespace olaf

@@ -37,44 +37,38 @@ public:
 
   olaf::DB & db() { return db_; }
 
-  void process_audio(const uint16_t * audio_data, size_t length)
+  void process_audio(const uint16_t * audio_data)
   {
-    size_t offset = 0;
-    while (offset + config_.audioBlockSize <= length) {
-      // Copy and convert to float (expected 16-bit PCM)
-      for (size_t i = 0; i < BlockSize; ++i) {
-        fft_in_[i] = static_cast<float>(audio_data[offset + i]) / 32768.0f;
-      }
-
-      // Apply window
-      for (size_t i = 0; i < BlockSize; ++i) {
-        fft_in_[i] *= window_[i];
-      }
-
-      // Perform FFT
-      arm_rfft_fast_f32(&instance_, fft_in_, fft_out_, 0);
-
-      printf("fft\n");
-
-      // Extract event points
-      auto event_points = ep_extractor_.extract(fft_out_, audio_block_index_);
-
-      printf("points %d\n", event_points->event_point_index);
-
-      if (event_points->event_point_index > config_.eventPointThreshold) {
-        // Extract fingerprints
-        auto fingerprints = fp_extractor_.extract(event_points, audio_block_index_);
-
-        if (fingerprints->fingerprint_index > 0) {
-          fp_matcher.match(fingerprints);
-        }
-
-        fingerprints->fingerprint_index = 0;
-      }
-
-      audio_block_index_++;
-      offset += config_.audioBlockSize;
+    // Copy and convert to float (expected 16-bit PCM)
+    for (size_t i = 0; i < BlockSize; ++i) {
+      fft_in_[i] = static_cast<float>(audio_data[i]) / 32768.0f;
     }
+
+    // Apply window
+    for (size_t i = 0; i < BlockSize; ++i) {
+      fft_in_[i] *= window_[i];
+    }
+
+    // Perform FFT
+    arm_rfft_fast_f32(&instance_, fft_in_, fft_out_, 0);
+
+    // Extract event points
+    ep_extractor_.extract(fft_out_, audio_block_index_);
+    auto & event_points = ep_extractor_.event_points();
+
+    if (event_points.event_point_index > config_.eventPointThreshold) {
+      // Extract fingerprints
+      fp_extractor_.extract(event_points, audio_block_index_);
+      auto & fingerprints = fp_extractor_.get_fingerprints();
+
+      if (fingerprints.fingerprint_index > 0) {
+        fp_matcher.match(fingerprints);
+      }
+
+      fingerprints.fingerprint_index = 0;
+    }
+
+    audio_block_index_++;
   }
 
 private:
@@ -110,5 +104,8 @@ private:
     int match_count, float query_start, float query_stop, std::uint32_t audio_id,
     float reference_start, float reference_stop)
   {
+    printf(
+      "Match: count=%d, q_start=%.2f, q_stop=%.2f, id=%u, ref_start=%.2f, ref_stop=%.2f\n",
+      match_count, query_start, query_stop, audio_id, reference_start, reference_stop);
   }
 };
