@@ -4,6 +4,8 @@
 #include <arm_math.h>
 #include <dsp/window_functions.h>
 
+#include <cstdio>
+
 #include "olaf_config.hpp"
 #include "olaf_db.hpp"
 #include "olaf_ep_extractor.hpp"
@@ -20,40 +22,48 @@ class OlafRecognizer
 {
 public:
   OlafRecognizer()
-  : window(BlockSize == 1024 ? hamming_window_1024 : hamming_window_512),
-    fft_in(),
-    fft_out(),
-    config(olaf::Config::create_esp_32()),
-    ep_extractor(config),
-    fp_extractor(config),
-    fp_matcher(config, db, std::bind(&OlafRecognizer::on_match, this, _1, _2, _3, _4, _5, _6))
+  : window_(BlockSize == 1024 ? hamming_window_1024 : hamming_window_512),
+    fft_in_(),
+    fft_out_(),
+    config_(olaf::Config::create_esp_32()),
+    ep_extractor_(config_),
+    fp_extractor_(config_),
+    fp_matcher(config_, db_, std::bind(&OlafRecognizer::on_match, this, _1, _2, _3, _4, _5, _6))
   {
     init_fft();
   }
 
+  olaf::Config & config() { return config_; }
+
+  olaf::DB & db() { return db_; }
+
   void process_audio(const uint16_t * audio_data, size_t length)
   {
     size_t offset = 0;
-    while (offset + config.audioBlockSize <= length) {
+    while (offset + config_.audioBlockSize <= length) {
       // Copy and convert to float (expected 16-bit PCM)
       for (size_t i = 0; i < BlockSize; ++i) {
-        fft_in[i] = static_cast<float>(audio_data[offset + i]) / 32768.0f;
+        fft_in_[i] = static_cast<float>(audio_data[offset + i]) / 32768.0f;
       }
 
       // Apply window
       for (size_t i = 0; i < BlockSize; ++i) {
-        fft_in[i] *= window[i];
+        fft_in_[i] *= window_[i];
       }
 
       // Perform FFT
-      arm_rfft_fast_f32(&instance, fft_in, fft_out, 0);
+      arm_rfft_fast_f32(&instance_, fft_in_, fft_out_, 0);
+
+      printf("fft\n");
 
       // Extract event points
-      auto event_points = ep_extractor.extract(fft_out, audio_block_index_);
+      auto event_points = ep_extractor_.extract(fft_out_, audio_block_index_);
 
-      if (event_points->eventPointIndex > config.eventPointThreshold) {
+      printf("points %d\n", event_points->event_point_index);
+
+      if (event_points->event_point_index > config_.eventPointThreshold) {
         // Extract fingerprints
-        auto fingerprints = fp_extractor.extract(event_points, audio_block_index_);
+        auto fingerprints = fp_extractor_.extract(event_points, audio_block_index_);
 
         if (fingerprints->fingerprint_index > 0) {
           fp_matcher.match(fingerprints);
@@ -63,20 +73,20 @@ public:
       }
 
       audio_block_index_++;
-      offset += config.audioBlockSize;
+      offset += config_.audioBlockSize;
     }
   }
 
 private:
-  arm_rfft_fast_instance_f32 instance;
-  const float * window;
-  float fft_in[BlockSize];
-  float fft_out[BlockSize];
+  arm_rfft_fast_instance_f32 instance_;
+  const float * window_;
+  float fft_in_[BlockSize];
+  float fft_out_[BlockSize];
 
-  olaf::Config config;
-  olaf::DB db;
-  olaf::EPExtractor ep_extractor;
-  olaf::FPExtractor fp_extractor;
+  olaf::Config config_;
+  olaf::DB db_;
+  olaf::EPExtractor ep_extractor_;
+  olaf::FPExtractor fp_extractor_;
   olaf::FPMatcher fp_matcher;
 
   uint32_t audio_block_index_ = 0;
@@ -85,12 +95,12 @@ private:
   {
     static_assert(BlockSize == 1024 || BlockSize == 512, "Only 512 and 1024 supported");
     if constexpr (BlockSize == 1024) {
-      if (auto result = arm_rfft_fast_init_1024_f32(&instance); result != ARM_MATH_SUCCESS) {
+      if (auto result = arm_rfft_fast_init_1024_f32(&instance_); result != ARM_MATH_SUCCESS) {
         printf("FFT init error %d\n", result);
       }
     }
     if constexpr (BlockSize == 512) {
-      if (auto result = arm_rfft_fast_init_512_f32(&instance); result != ARM_MATH_SUCCESS) {
+      if (auto result = arm_rfft_fast_init_512_f32(&instance_); result != ARM_MATH_SUCCESS) {
         printf("FFT init error %d\n", result);
       }
     }

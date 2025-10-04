@@ -1,4 +1,5 @@
-#pragma once
+#ifndef PDM_DRIVER_HPP
+#define PDM_DRIVER_HPP
 
 #include <zephyr/audio/dmic.h>
 #include <zephyr/device.h>
@@ -13,6 +14,11 @@ class PDMAudioInput
 public:
   PDMAudioInput(const struct device * device) : device_(device), stream_({}), cfg_({})
   {
+    if (!device_is_ready(device_)) {
+      printk("Error: PDM device %s is not ready\n", device_->name);
+      return;
+    }
+
     ret = k_mem_slab_init(&slab_, buffer_, BlockSize, BlockCount);
     if (ret < 0) {
       printk("k_mem_slab_init failed %d\n", ret);
@@ -41,6 +47,8 @@ public:
   }
 
   ~PDMAudioInput() { stop(); }
+
+  bool is_ready() const { return device_is_ready(device_); }
 
   int start()
   {
@@ -76,3 +84,5 @@ private:
   struct pcm_stream_cfg stream_;
   struct dmic_cfg cfg_;
 };
+
+#endif  // PDM_DRIVER_HPP

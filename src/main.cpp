@@ -9,28 +9,18 @@
  * @file Sample app to demonstrate PWM.
  */
 
-#include <arm_const_structs.h>
-#include <arm_math.h>
-#include <dsp/window_functions.h>
-#include <zephyr/audio/dmic.h>
-#include <zephyr/bluetooth/bluetooth.h>
-#include <zephyr/bluetooth/conn.h>
-#include <zephyr/bluetooth/gatt.h>
-#include <zephyr/bluetooth/hci.h>
 #include <zephyr/device.h>
 #include <zephyr/drivers/pwm.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/printk.h>
 
-#include <algorithm>
-#include <cstdint>
-
 #include "olaf.hpp"
+#include "olaf_fp_ref_mem.h"
 #include "pdm.hpp"
 
 static const struct pwm_dt_spec pwm_led0 = PWM_DT_SPEC_GET(DT_ALIAS(pwm_led0));
-static const struct device * dmic_dev = DEVICE_DT_GET(DT_NODELABEL(dmic_dev));
+static const struct device * dmic_device_dt = DEVICE_DT_GET(DT_NODELABEL(dmic_dev));
 
 // Olaf configuration
 #define OLAF_SAMPLE_RATE 16000
@@ -49,7 +39,7 @@ static const struct device * dmic_dev = DEVICE_DT_GET(DT_NODELABEL(dmic_dev));
 #define PDM_BLOCK_COUNT 4
 
 PDMAudioInput<uint16_t, PDM_SAMPLE_BIT_WIDTH, PDM_SAMPLE_FREQUENCY, PDM_BLOCK_SIZE, PDM_BLOCK_COUNT>
-  pdm_input(dmic_dev);
+  pdm_input(dmic_device_dt);
 OlafRecognizer<OLAF_AUDIO_BLOCK_SIZE, OLAF_SAMPLE_RATE> olaf_recognizer;
 
 static void print_sys_memory_stats(struct sys_heap * hp)
@@ -79,8 +69,18 @@ void print_all_heaps(void)
 
 int main(void)
 {
+  if (!device_is_ready(dmic_device_dt)) {
+    printk("Error: PDM device %s is not ready\n", dmic_device_dt->name);
+    return 0;
+  }
+  pdm_input.start();
+  olaf_recognizer.config().verbose = true;
+  olaf_recognizer.db().register_audio(
+    1, olaf_db_mem_fps, sizeof(olaf_db_mem_fps) / sizeof(olaf_db_mem_fps[0]));
   while (1) {
-    k_sleep(K_MSEC(200));
+    auto buffer = pdm_input.read();
+    olaf_recognizer.process_audio(buffer.as<uint16_t>(), buffer.count<uint16_t>());
+    printf(".");
   }
   return 0;
 }

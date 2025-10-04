@@ -23,6 +23,12 @@ public:
 
   size_t size() const { return size_; }
 
+  template <typename T>
+  size_t count() const
+  {
+    return size_ / sizeof(T);
+  }
+
 private:
   struct k_mem_slab * slab_;
   void * buffer_;
