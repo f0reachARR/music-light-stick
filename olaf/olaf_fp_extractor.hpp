@@ -344,9 +344,13 @@ public:
       }
     }
 
-    std::qsort(
-      event_points.event_points.data(), config_.maxEventPoints, sizeof(EventPoint),
-      compare_event_points);
+    // std::qsort(
+    // event_points.event_points.data(), config_.maxEventPoints, sizeof(EventPoint),
+    // compare_event_points);
+    std::sort(
+      event_points.event_points.begin(),
+      event_points.event_points.begin() + event_points.event_point_index,
+      [](const EventPoint & a, const EventPoint & b) { return a.time_index < b.time_index; });
 
     for (int i = 0; i < event_points.event_point_index; ++i) {
       if (event_points.event_points[i].time_index == (1 << 23)) {

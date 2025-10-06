@@ -31,17 +31,18 @@ public:
     fp_matcher(config_, db_, std::bind(&OlafRecognizer::on_match, this, _1, _2, _3, _4, _5, _6))
   {
     init_fft();
+    config_.searchRange = 15;
   }
 
   olaf::Config & config() { return config_; }
 
   olaf::DB & db() { return db_; }
 
-  void process_audio(const uint16_t * audio_data)
+  void process_audio(const int16_t * audio_data)
   {
     // Copy and convert to float (expected 16-bit PCM)
     for (size_t i = 0; i < BlockSize; ++i) {
-      fft_in_[i] = static_cast<float>(audio_data[i]) / 32768.0f;
+      fft_in_[i] = static_cast<float>(audio_data[i]) / 32768.0f * 32.0f;
     }
 
     // Apply window

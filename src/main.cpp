@@ -36,7 +36,7 @@ static const struct device * dmic_device_dt = DEVICE_DT_GET(DT_NODELABEL(dmic_de
 
 // Memory slab for PDM
 #define PDM_BLOCK_SIZE (PDM_BYTES_PER_SAMPLE * PDM_SAMPLES_PER_BLOCK)
-#define PDM_BLOCK_COUNT 4
+#define PDM_BLOCK_COUNT 8
 
 PDMAudioInput<uint16_t, PDM_SAMPLE_BIT_WIDTH, PDM_SAMPLE_FREQUENCY, PDM_BLOCK_SIZE, PDM_BLOCK_COUNT>
   pdm_input(dmic_device_dt);
@@ -74,12 +74,12 @@ int main(void)
     return 0;
   }
   pdm_input.start();
-  olaf_recognizer.config().verbose = true;
+  olaf_recognizer.config().verbose = false;
   olaf_recognizer.db().register_audio(
     1, olaf_db_mem_fps, sizeof(olaf_db_mem_fps) / sizeof(olaf_db_mem_fps[0]));
   while (1) {
     auto buffer = pdm_input.read();
-    olaf_recognizer.process_audio(buffer.as<uint16_t>());
+    olaf_recognizer.process_audio(buffer.as<int16_t>());
     printf(".");
   }
   return 0;

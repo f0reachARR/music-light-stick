@@ -164,10 +164,7 @@ private:
 
 public:
   FPMatcher(const Config & config, DB & db, MatchResultCallback callback)
-  : config_(config),
-    db_(db),
-    result_callback_(std::move(callback)),
-    last_print_at_(0)
+  : config_(config), db_(db), result_callback_(std::move(callback)), last_print_at_(0)
   {
     db_results_.reserve(config.maxDBCollisions);
   }
@@ -225,6 +222,14 @@ public:
     for (const auto & pair : result_hash_table_) {
       const auto & match = pair.second;
 
+      if (match.match_count > 1) {
+        auto time_delta = (int)(pair.first >> 32);
+        printf(
+          "[%d]: match id %u, count %d, q t1 %d, ref t1 %d..%d\n", time_delta,
+          match.match_identifier, match.match_count, match.query_fingerprint_t1,
+          match.first_reference_fingerprint_t1, match.last_reference_fingerprint_t1);
+      }
+
       if (match.match_count >= config_.minMatchCount) {
         if (match_results.size() >= config_.maxResults) {
           std::sort(
@@ -254,6 +259,7 @@ public:
 
     for (const auto & match_ref : match_results) {
       const auto & match = match_ref.get();
+
       const float time_delta =
         seconds_per_block * (match.query_fingerprint_t1 - match.reference_fingerprint_t1);
 
@@ -261,13 +267,24 @@ public:
       const float reference_stop = match.last_reference_fingerprint_t1 * seconds_per_block;
 
       if ((reference_stop - reference_start) >= config_.minMatchTimeDiff) {
-        const float query_start = match.first_reference_fingerprint_t1 * seconds_per_block + time_delta;
-        const float query_stop = match.last_reference_fingerprint_t1 * seconds_per_block + time_delta;
+        const float query_start =
+          match.first_reference_fingerprint_t1 * seconds_per_block + time_delta;
+        const float query_stop =
+          match.last_reference_fingerprint_t1 * seconds_per_block + time_delta;
 
         result_callback_(
           match.match_count, query_start, query_stop, match.match_identifier, reference_start,
           reference_stop);
       }
+
+      printf(
+        "%d, %.2f, %.2f, %u, %.2f, %.2f\n", match.match_count,
+        match.first_reference_fingerprint_t1 * seconds_per_block +
+          (seconds_per_block * (match.query_fingerprint_t1 - match.reference_fingerprint_t1)),
+        match.last_reference_fingerprint_t1 * seconds_per_block +
+          (seconds_per_block * (match.query_fingerprint_t1 - match.reference_fingerprint_t1)),
+        match.match_identifier, match.first_reference_fingerprint_t1 * seconds_per_block,
+        match.last_reference_fingerprint_t1 * seconds_per_block);
     }
 
     if (match_results.empty()) {
