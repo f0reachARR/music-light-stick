@@ -1,0 +1,261 @@
+(footprint "XL-5050RGBW"
+	(version 20241229)
+	(generator "pcbnew")
+	(generator_version "9.0")
+	(layer "F.Cu")
+	(descr "http://cdn.sparkfun.com/datasheets/Components/LED/5060BRG4.pdf")
+	(tags "RGB LED 5050-6")
+	(property "Reference" "REF**"
+		(at 0 3.5 180)
+		(layer "F.SilkS")
+		(uuid "3195caa8-e0f6-42ae-88d4-426a82024df2")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Value" "XL-5050RGBW"
+		(at 0 -3.3 0)
+		(layer "F.Fab")
+		(uuid "930cf046-e26d-41e9-9b67-0a5c8c32e387")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "ad6e49e1-ad85-4563-848d-026249d462e8")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Description" ""
+		(at 0 0 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "e71e5564-2ea5-4f50-bcb9-050bd2f00ed6")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(attr smd)
+	(fp_line
+		(start -2.5 -2.7)
+		(end 2.5 -2.7)
+		(stroke
+			(width 0.12)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "5cf4293f-6507-4436-9196-9a0cca944b0b")
+	)
+	(fp_line
+		(start 2.5 2.7)
+		(end -2.5 2.7)
+		(stroke
+			(width 0.12)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "33e47f92-664a-4f3f-88d5-8b2c9dff7e9f")
+	)
+	(fp_poly
+		(pts
+			(xy 3 2.5) (xy 3.24 2.83) (xy 2.76 2.83) (xy 3 2.5)
+		)
+		(stroke
+			(width 0.12)
+			(type solid)
+		)
+		(fill yes)
+		(layer "F.SilkS")
+		(uuid "7e0fc3bc-47d9-47c0-81f5-72900eec9e3f")
+	)
+	(fp_line
+		(start -3.65 -2.75)
+		(end -3.65 2.75)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(layer "F.CrtYd")
+		(uuid "24b705c7-5498-4594-9685-cd3f237deb6a")
+	)
+	(fp_line
+		(start -3.65 2.75)
+		(end 3.65 2.75)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(layer "F.CrtYd")
+		(uuid "f648d975-9309-4be8-b8cf-491e5ed3f851")
+	)
+	(fp_line
+		(start 3.65 -2.75)
+		(end -3.65 -2.75)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(layer "F.CrtYd")
+		(uuid "38f368ca-5043-4b4e-8e25-7094c516e12f")
+	)
+	(fp_line
+		(start 3.65 2.75)
+		(end 3.65 -2.75)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(layer "F.CrtYd")
+		(uuid "74c1e0d6-2e42-4d55-9fbc-f38872c9ed05")
+	)
+	(fp_line
+		(start -2.5 -2.5)
+		(end -2.5 2.5)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "a2502820-f8cb-4c31-a3a2-6104a6a3084e")
+	)
+	(fp_line
+		(start -2.5 2.5)
+		(end 2.5 2.5)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "4052411f-bdeb-4592-b560-df317a027bd2")
+	)
+	(fp_line
+		(start 2.5 -2.5)
+		(end -2.5 -2.5)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "c90947c6-093e-4f9b-9a14-6b592fac8502")
+	)
+	(fp_line
+		(start 2.5 1.9)
+		(end 1.9 2.5)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "ad520b0d-78ed-478e-ba63-941f0da5e5ca")
+	)
+	(fp_line
+		(start 2.5 2.5)
+		(end 2.5 -2.5)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "2aa21f2a-4ce7-4eab-a2ba-f3891147c155")
+	)
+	(fp_circle
+		(center 0 0)
+		(end 0 1.9)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.Fab")
+		(uuid "d8d44c77-87b5-4252-b724-2eff045b717d")
+	)
+	(fp_text user "${REFERENCE}"
+		(at 0 0 0)
+		(layer "F.Fab")
+		(uuid "45d46ad0-4ce1-41cf-81d4-74ebc1519470")
+		(effects
+			(font
+				(size 0.6 0.6)
+				(thickness 0.06)
+			)
+		)
+	)
+	(pad "1" smd rect
+		(at -2.14 -1.98 90)
+		(size 0.76 1.28)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(uuid "5ab4ec2f-316d-460b-9fe5-c0e53060fc1d")
+	)
+	(pad "2" smd rect
+		(at -2.14 -0.66 90)
+		(size 0.76 1.28)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(uuid "3998f411-8ee2-4920-820f-0c5ee175bc35")
+	)
+	(pad "3" smd rect
+		(at -2.14 0.66 90)
+		(size 0.76 1.28)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(uuid "8efdabee-b917-4058-8910-1cf42f33d518")
+	)
+	(pad "4" smd rect
+		(at -2.14 1.98 90)
+		(size 0.76 1.28)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(uuid "3bec8ade-cded-42a4-9758-c16c6bde3a23")
+	)
+	(pad "5" smd rect
+		(at 2.14 -1.98 90)
+		(size 0.76 1.28)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(uuid "e271992e-02ad-4cef-992d-485197bece84")
+	)
+	(pad "6" smd rect
+		(at 2.14 -0.66 90)
+		(size 0.76 1.28)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(uuid "977a8a6e-da0b-4335-9919-2a85cd3f109d")
+	)
+	(pad "7" smd rect
+		(at 2.14 0.66 90)
+		(size 0.76 1.28)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(uuid "a509d670-c340-4f0d-8d0b-31786435ab0d")
+	)
+	(pad "8" smd rect
+		(at 2.14 1.98 90)
+		(size 0.76 1.28)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(uuid "64819ba1-7a47-41ea-8d64-d14bf6047355")
+	)
+	(embedded_fonts no)
+	(model "${KICAD9_3DMODEL_DIR}/LED_SMD.3dshapes/LED_RGB_5050-6.step"
+		(offset
+			(xyz 0 0 0)
+		)
+		(scale
+			(xyz 1 1 1)
+		)
+		(rotate
+			(xyz 0 0 0)
+		)
+	)
+)
