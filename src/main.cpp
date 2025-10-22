@@ -21,6 +21,7 @@
 #include "led_controller.hpp"
 #include "preset_manager.hpp"
 #include "preview_manager.hpp"
+#include "settings_manager.hpp"
 
 LOG_MODULE_REGISTER(penlight, LOG_LEVEL_DBG);
 
@@ -106,6 +107,13 @@ int main(void)
   int err;
 
   printk("Starting Penlight BLE Application\n");
+
+  // Initialize settings and preset manager
+  err = preset_manager.init();
+  if (err) {
+    printk("Failed to initialize preset manager (err %d)\n", err);
+    return 0;
+  }
 
   // Initialize LED controller
   if (!led_controller.init()) {
