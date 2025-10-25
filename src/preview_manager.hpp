@@ -11,7 +11,9 @@
 class PreviewManager
 {
 public:
-  PreviewManager() : in_preview_mode_(false), preview_effect_()
+  PreviewManager() : in_preview_mode_(false), preview_effect_() {}
+
+  void init()
   {
     k_timer_init(&timeout_timer_, timeout_callback, nullptr);
     k_timer_user_data_set(&timeout_timer_, this);
