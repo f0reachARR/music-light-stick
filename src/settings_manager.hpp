@@ -7,6 +7,7 @@
 #include <cstring>
 
 #include "ble_service.hpp"
+#include "effect_mode.hpp"
 
 #define PRESET_COUNT 20
 #define SETTINGS_NAME_PENLIGHT "penlight"
@@ -29,13 +30,6 @@ public:
       return ret;
     }
 
-    // Register settings handler
-    ret = settings_register(&settings_handler_);
-    if (ret) {
-      printk("Settings register failed (err %d)\n", ret);
-      return ret;
-    }
-
     return 0;
   }
 
@@ -51,31 +45,37 @@ public:
     return 0;
   }
 
-  void write_preset(uint8_t preset_number, const rgbw_color_t & color)
+  void write_preset(uint8_t preset_number, const Effect & effect)
   {
     if (preset_number >= PRESET_COUNT) {
       return;
     }
 
     // Update in-memory data
-    presets_[preset_number] = color;
+    presets_[preset_number] = effect;
 
     // Schedule delayed save
     schedule_save();
   }
 
-  rgbw_color_t read_preset(uint8_t preset_number) const
+  Effect read_preset(uint8_t preset_number) const
   {
     if (preset_number >= PRESET_COUNT) {
-      return {0, 0, 0, 0};
+      return Effect::create_fixed_color({0, 0, 0, 0});
     }
     return presets_[preset_number];
+  }
+
+  // Backward compatibility: write RGBW as fixed color effect
+  void write_preset_legacy(uint8_t preset_number, const rgbw_color_t & color)
+  {
+    write_preset(preset_number, Effect::create_fixed_color(color));
   }
 
   bool are_settings_loaded() const { return presets_loaded_; }
 
 private:
-  rgbw_color_t presets_[PRESET_COUNT];
+  Effect presets_[PRESET_COUNT];
   bool presets_loaded_;
   bool save_pending_;
 
@@ -87,21 +87,25 @@ private:
 
     // Initialize default presets
     for (int i = 0; i < PRESET_COUNT; i++) {
-      presets_[i] = {0, 0, 0, 0};
+      presets_[i] = Effect::create_fixed_color({0, 0, 0, 0});
     }
 
-    // Set some default presets
-    presets_[0] = {255, 0, 0, 0};    // Red
-    presets_[1] = {0, 255, 0, 0};    // Green
-    presets_[2] = {0, 0, 255, 0};    // Blue
-    presets_[3] = {0, 0, 0, 255};    // White
-    presets_[4] = {255, 255, 0, 0};  // Yellow
+    // Set some default presets with various effects
+    presets_[0] = Effect::create_fixed_color({255, 0, 0, 0});    // Red
+    presets_[1] = Effect::create_fixed_color({0, 255, 0, 0});    // Green
+    presets_[2] = Effect::create_fixed_color({0, 0, 255, 0});    // Blue
+    presets_[3] = Effect::create_fixed_color({0, 0, 0, 255});    // White
+    presets_[4] = Effect::create_fixed_color({255, 255, 0, 0});  // Yellow
+    presets_[5] = Effect::create_rainbow(128, 255);              // Rainbow (medium speed)
+    presets_[6] =
+      Effect::create_gradient({255, 0, 0, 0}, {0, 0, 255, 0}, 64);  // Red to Blue gradient
+    presets_[7] = Effect::create_blink({255, 255, 255, 0}, 10);     // White blink (1s period)
   }
 
   void schedule_save()
   {
     save_pending_ = true;
-    k_timer_start(&save_timer_, K_SECONDS(1), K_NO_WAIT);
+    k_timer_start(&save_timer_, K_SECONDS(10), K_NO_WAIT);
   }
 
   void save_all()
@@ -128,6 +132,7 @@ private:
     k_timer_stop(timer);
   }
 
+public:
   // Settings callback functions
   static int settings_set(const char * name, size_t len, settings_read_cb read_cb, void * cb_arg)
   {
@@ -155,9 +160,16 @@ private:
     return -ENOENT;
   }
 
+  static int settings_commit(void)
+  {
+    printk("Loading settings is complete\n");
+    return 0;
+  }
+
   static int settings_export(int (*cb)(const char * name, const void * value, size_t val_len))
   {
-    // Not implemented yet
+    cb(SETTINGS_KEY_PRESETS, instance().presets_, sizeof(instance().presets_));
+
     return 0;
   }
 
@@ -171,3 +183,7 @@ private:
 
   friend class PresetManagerWithSettings;
 };
+
+SETTINGS_STATIC_HANDLER_DEFINE(
+  penlight_settings, SETTINGS_NAME_PENLIGHT, nullptr, &SettingsManager::settings_set,
+  &SettingsManager::settings_commit, &SettingsManager::settings_export);

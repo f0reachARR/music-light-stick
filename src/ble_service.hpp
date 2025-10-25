@@ -9,6 +9,8 @@
 
 #include <array>
 
+#include "effect_mode.hpp"
+
 // Penlight Control Service UUID: 0000ff00-0000-1000-8000-00805f9b34fb
 #define BT_UUID_PENLIGHT_SERVICE_VAL \
   BT_UUID_128_ENCODE(0x0000ff00, 0x0000, 0x1000, 0x8000, 0x00805f9b34fb)
@@ -44,15 +46,6 @@
   BT_UUID_128_ENCODE(0x0000ff06, 0x0000, 0x1000, 0x8000, 0x00805f9b34fb)
 #define BT_UUID_BATTERY_LEVEL BT_UUID_DECLARE_128(BT_UUID_BATTERY_LEVEL_VAL)
 
-// RGBW color structure
-struct rgbw_color_t
-{
-  uint8_t r;
-  uint8_t g;
-  uint8_t b;
-  uint8_t w;
-} __packed;
-
 // Preset write data structure
 struct preset_write_t
 {
@@ -64,9 +57,9 @@ struct preset_write_t
 class PenlightBLEService;
 
 // Callback function types
-using PresetWriteCallback = void (*)(uint8_t preset, const rgbw_color_t & color);
+using PresetWriteCallback = void (*)(uint8_t preset, const Effect & effect);
 using PresetReadCallback = void (*)(uint8_t preset);
-using PreviewColorCallback = void (*)(const rgbw_color_t & color);
+using PreviewColorCallback = void (*)(const Effect & effect);
 using ExitPreviewCallback = void (*)();
 using CurrentPresetReadCallback = uint8_t (*)();
 
@@ -93,9 +86,12 @@ public:
     current_preset_read_cb_ = cb;
   }
 
-  static void set_preset_read_data(const rgbw_color_t & color)
+  static void set_preset_read_data(const Effect & effect)
   {
-    instance().preset_read_data_ = color;
+    instance().preset_read_effect_ = effect;
+    // Serialize effect to buffer for reading
+    instance().preset_read_size_ =
+      effect.serialize(instance().preset_read_data_, sizeof(instance().preset_read_data_));
   }
 
   static void notify_current_preset(uint8_t preset);
@@ -117,17 +113,37 @@ public:
     struct bt_conn * conn, const struct bt_gatt_attr * attr, const void * buf, uint16_t len,
     uint16_t offset, uint8_t flags)
   {
-    if (offset + len > sizeof(preset_write_t)) {
+    if (offset != 0) {
       return BT_GATT_ERR(BT_ATT_ERR_INVALID_OFFSET);
     }
 
-    const auto * data = static_cast<const preset_write_t *>(buf);
-    if (data->preset_number >= 20) {
+    // Check minimum length (preset number + mode byte)
+    if (len < 2) {
+      return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
+    }
+
+    const auto * data = static_cast<const uint8_t *>(buf);
+    uint8_t preset_number = data[0];
+
+    if (preset_number >= 20) {
       return BT_GATT_ERR(BT_ATT_ERR_VALUE_NOT_ALLOWED);
     }
 
+    // Parse effect from remaining data
+    Effect effect;
+    if (!effect.deserialize(data + 1, len - 1)) {
+      // Try legacy 4-byte RGBW format for backward compatibility
+      if (len == 5) {
+        rgbw_color_t color;
+        memcpy(&color, data + 1, sizeof(rgbw_color_t));
+        effect = Effect::from_legacy_rgbw(color);
+      } else {
+        return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
+      }
+    }
+
     if (instance().preset_write_cb_) {
-      instance().preset_write_cb_(data->preset_number, data->color);
+      instance().preset_write_cb_(preset_number, effect);
     }
 
     return len;
@@ -158,20 +174,39 @@ public:
     uint16_t offset)
   {
     return bt_gatt_attr_read(
-      conn, attr, buf, len, offset, &instance().preset_read_data_, sizeof(rgbw_color_t));
+      conn, attr, buf, len, offset, instance().preset_read_data_, instance().preset_read_size_);
   }
 
   static ssize_t write_preview_color(
     struct bt_conn * conn, const struct bt_gatt_attr * attr, const void * buf, uint16_t len,
     uint16_t offset, uint8_t flags)
   {
-    if (offset + len > sizeof(rgbw_color_t)) {
+    if (offset != 0) {
       return BT_GATT_ERR(BT_ATT_ERR_INVALID_OFFSET);
     }
 
-    const auto * color = static_cast<const rgbw_color_t *>(buf);
+    // Check minimum length (mode byte)
+    if (len < 1) {
+      return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
+    }
+
+    const auto * data = static_cast<const uint8_t *>(buf);
+
+    // Parse effect
+    Effect effect;
+    if (!effect.deserialize(data, len)) {
+      // Try legacy 4-byte RGBW format for backward compatibility
+      if (len == 4) {
+        rgbw_color_t color;
+        memcpy(&color, data, sizeof(rgbw_color_t));
+        effect = Effect::from_legacy_rgbw(color);
+      } else {
+        return BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
+      }
+    }
+
     if (instance().preview_color_cb_) {
-      instance().preview_color_cb_(*color);
+      instance().preview_color_cb_(effect);
     }
 
     return len;
@@ -222,10 +257,12 @@ private:
     current_preset_read_cb_(nullptr),
     current_preset_(0),
     battery_level_(100),
-    preset_read_data_{0, 0, 0, 0},
+    preset_read_effect_(),
+    preset_read_size_(0),
     preset_notify_enabled_(false),
     battery_level_notify_enabled_(false)
   {
+    memset(preset_read_data_, 0, sizeof(preset_read_data_));
   }
 
   PresetWriteCallback preset_write_cb_;
@@ -236,7 +273,9 @@ private:
 
   uint8_t current_preset_;
   uint8_t battery_level_;
-  rgbw_color_t preset_read_data_;
+  Effect preset_read_effect_;
+  uint8_t preset_read_data_[MAX_PRESET_DATA_SIZE];
+  size_t preset_read_size_;
 
   bool preset_notify_enabled_, battery_level_notify_enabled_;
 };

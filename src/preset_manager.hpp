@@ -4,12 +4,13 @@
 #include <zephyr/logging/log.h>
 
 #include "ble_service.hpp"
+#include "effect_mode.hpp"
 #include "settings_manager.hpp"
 
 class PresetManager
 {
 public:
-  PresetManager() {}
+  PresetManager() : current_preset_(0) {}
 
   int init()
   {
@@ -25,17 +26,25 @@ public:
       return ret;
     }
 
+    printk("Preset manager initialized\n");
+
     return 0;
   }
 
-  void write_preset(uint8_t preset_number, const rgbw_color_t & color)
+  void write_preset(uint8_t preset_number, const Effect & effect)
   {
-    SettingsManager::instance().write_preset(preset_number, color);
+    SettingsManager::instance().write_preset(preset_number, effect);
   }
 
-  rgbw_color_t read_preset(uint8_t preset_number) const
+  Effect read_preset(uint8_t preset_number) const
   {
     return SettingsManager::instance().read_preset(preset_number);
+  }
+
+  // Backward compatibility
+  void write_preset_legacy(uint8_t preset_number, const rgbw_color_t & color)
+  {
+    SettingsManager::instance().write_preset_legacy(preset_number, color);
   }
 
   uint8_t get_current_preset() const { return current_preset_; }
@@ -44,7 +53,7 @@ public:
 
   void next_preset() { current_preset_ = (current_preset_ + 1) % PRESET_COUNT; }
 
-  rgbw_color_t get_current_color() const
+  Effect get_current_effect() const
   {
     return SettingsManager::instance().read_preset(current_preset_);
   }

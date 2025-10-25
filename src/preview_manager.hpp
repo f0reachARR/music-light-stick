@@ -3,7 +3,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 
-#include "ble_service.hpp"
+#include "effect_mode.hpp"
 
 // Preview timeout: 30 seconds
 #define PREVIEW_TIMEOUT_MS 30000
@@ -11,15 +11,15 @@
 class PreviewManager
 {
 public:
-  PreviewManager() : in_preview_mode_(false), preview_color_{0, 0, 0, 0}
+  PreviewManager() : in_preview_mode_(false), preview_effect_()
   {
     k_timer_init(&timeout_timer_, timeout_callback, nullptr);
     k_timer_user_data_set(&timeout_timer_, this);
   }
 
-  void enter_preview_mode(const rgbw_color_t & color)
+  void enter_preview_mode(const Effect & effect)
   {
-    preview_color_ = color;
+    preview_effect_ = effect;
     in_preview_mode_ = true;
 
     // Start or restart the timeout timer
@@ -34,7 +34,7 @@ public:
 
   bool is_in_preview_mode() const { return in_preview_mode_; }
 
-  rgbw_color_t get_preview_color() const { return preview_color_; }
+  const Effect & get_preview_effect() const { return preview_effect_; }
 
   void set_timeout_callback(void (*callback)(void *), void * user_data)
   {
@@ -44,7 +44,7 @@ public:
 
 private:
   bool in_preview_mode_;
-  rgbw_color_t preview_color_;
+  Effect preview_effect_;
   struct k_timer timeout_timer_;
 
   void (*timeout_callback_func_)(void *) = nullptr;

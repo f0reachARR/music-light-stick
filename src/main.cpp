@@ -18,6 +18,7 @@
 
 #include "ble_service.hpp"
 #include "button_handler.hpp"
+#include "effect_engine.hpp"
 #include "led_controller.hpp"
 #include "preset_manager.hpp"
 #include "preview_manager.hpp"
@@ -39,6 +40,7 @@ static LEDController led_controller(&pwm_r, &pwm_g, &pwm_b, &pwm_w);
 static PresetManager preset_manager;
 static PreviewManager preview_manager;
 static ButtonHandler button_handler(&button_spec);
+static EffectEngine effect_engine;
 
 // BLE Advertisement data
 static const struct bt_data ad[] = {
@@ -53,9 +55,10 @@ static const struct bt_data sd[] = {
 
 // Forward declarations
 static void update_led_display();
-static void on_preset_write(uint8_t preset, const rgbw_color_t & color);
+static void effect_update_thread_func(void *, void *, void *);
+static void on_preset_write(uint8_t preset, const Effect & effect);
 static void on_preset_read(uint8_t preset);
-static void on_preview_color(const rgbw_color_t & color);
+static void on_preview_color(const Effect & effect);
 static void on_exit_preview();
 static uint8_t on_current_preset_read();
 static void on_button_pressed(void * user_data);
@@ -63,6 +66,12 @@ static void on_button_pressed_worker(struct k_work * work);
 static void on_preview_timeout(void * user_data);
 
 K_WORK_DEFINE(button_work, on_button_pressed_worker);
+
+// Effect update thread (runs every 30ms to update effects)
+#define EFFECT_UPDATE_THREAD_STACK_SIZE 1024
+#define EFFECT_UPDATE_THREAD_PRIORITY 7
+K_THREAD_STACK_DEFINE(effect_update_thread_stack, EFFECT_UPDATE_THREAD_STACK_SIZE);
+static struct k_thread effect_update_thread_data;
 
 static void bt_ready(int err)
 {
@@ -148,8 +157,15 @@ int main(void)
     return 0;
   }
 
-  // Set initial LED color to preset 0
+  // Set initial effect to preset 0
   update_led_display();
+
+  // Start effect update thread
+  k_thread_create(
+    &effect_update_thread_data, effect_update_thread_stack,
+    K_THREAD_STACK_SIZEOF(effect_update_thread_stack), effect_update_thread_func, NULL, NULL, NULL,
+    EFFECT_UPDATE_THREAD_PRIORITY, 0, K_NO_WAIT);
+  k_thread_name_set(&effect_update_thread_data, "effect_update");
 
   printk("Penlight initialized successfully\n");
 
@@ -163,33 +179,52 @@ int main(void)
 
 static void update_led_display()
 {
+  Effect effect;
+
   if (preview_manager.is_in_preview_mode()) {
-    led_controller.set_color(preview_manager.get_preview_color());
+    effect = preview_manager.get_preview_effect();
   } else {
-    led_controller.set_color(preset_manager.get_current_color());
+    effect = preset_manager.get_current_effect();
+  }
+
+  // Set effect and start the effect engine
+  effect_engine.set_effect(effect);
+  effect_engine.start();
+}
+
+// Effect update thread function - runs every 30ms to update effects
+static void effect_update_thread_func(void *, void *, void *)
+{
+  while (1) {
+    // Update effect and get current color
+    rgbw_color_t color = effect_engine.update();
+
+    // Set LED color
+    led_controller.set_color(color);
+
+    // Wait 30ms before next update
+    k_sleep(K_MSEC(30));
   }
 }
 
-static void on_preset_write(uint8_t preset, const rgbw_color_t & color)
+static void on_preset_write(uint8_t preset, const Effect & effect)
 {
-  printk(
-    "Preset write: preset=%d, R=%d, G=%d, B=%d, W=%d\n", preset, color.r, color.g, color.b,
-    color.w);
-  preset_manager.write_preset(preset, color);
+  printk("Preset write: preset=%d, mode=%d\n", preset, static_cast<uint8_t>(effect.mode));
+  preset_manager.write_preset(preset, effect);
 }
 
 static void on_preset_read(uint8_t preset)
 {
   printk("Preset read request: preset=%d\n", preset);
-  rgbw_color_t color = preset_manager.read_preset(preset);
-  PenlightBLEService::instance().set_preset_read_data(color);
-  printk("Preset read: R=%d, G=%d, B=%d, W=%d\n", color.r, color.g, color.b, color.w);
+  Effect effect = preset_manager.read_preset(preset);
+  PenlightBLEService::instance().set_preset_read_data(effect);
+  printk("Preset read: mode=%d\n", static_cast<uint8_t>(effect.mode));
 }
 
-static void on_preview_color(const rgbw_color_t & color)
+static void on_preview_color(const Effect & effect)
 {
-  printk("Preview color: R=%d, G=%d, B=%d, W=%d\n", color.r, color.g, color.b, color.w);
-  preview_manager.enter_preview_mode(color);
+  printk("Preview effect: mode=%d\n", static_cast<uint8_t>(effect.mode));
+  preview_manager.enter_preview_mode(effect);
   update_led_display();
 }
 

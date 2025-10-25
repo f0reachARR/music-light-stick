@@ -13,14 +13,6 @@ RGBW LED搭載ペンライトをBluetooth Low Energy (BLE)で制御するAndroid
 - バッテリー残量の表示
 - ペンライト本体のボタン操作との同期
 
-### 1.2 対象環境
-
-- **最小SDK**: Android 8.0 (API Level 26)
-- **推奨SDK**: Android 13 (API Level 33) 以上
-- **必要権限**: Bluetooth、位置情報（BLEスキャンに必要）
-- **開発言語**: Kotlin
-- **UIフレームワーク**: Jetpack Compose（推奨）/ XML Layout
-
 ---
 
 ## 2. アーキテクチャ
@@ -68,12 +60,14 @@ RGBW LED搭載ペンライトをBluetooth Low Energy (BLE)で制御するAndroid
 ### 3.2 デバイススキャン画面
 
 **機能**:
+
 - BLEデバイスのスキャン開始/停止
 - 検出されたデバイスをリスト表示
 - デバイス名、アドレス、信号強度（RSSI）を表示
 - タップで接続
 
 **UI要素**:
+
 ```
 ┌─────────────────────────────────┐
 │  ペンライトを検索              │
@@ -94,6 +88,7 @@ RGBW LED搭載ペンライトをBluetooth Low Energy (BLE)で制御するAndroid
 ```
 
 **動作**:
+
 1. スキャン開始ボタンタップ
 2. BLEスキャン開始（サービスUUID `0000ff00-...` でフィルタリング推奨）
 3. 検出されたデバイスをリスト表示
@@ -103,6 +98,7 @@ RGBW LED搭載ペンライトをBluetooth Low Energy (BLE)で制御するAndroid
 ### 3.3 メイン画面
 
 **機能**:
+
 - RGBWカラーピッカー
 - リアルタイムプレビュー
 - プリセット番号選択（0-19）
@@ -112,6 +108,7 @@ RGBW LED搭載ペンライトをBluetooth Low Energy (BLE)で制御するAndroid
 - 接続状態表示
 
 **UI要素**:
+
 ```
 ┌─────────────────────────────────┐
 │  🔋 85%        [切断]            │
@@ -167,12 +164,14 @@ RGBW LED搭載ペンライトをBluetooth Low Energy (BLE)で制御するAndroid
 ### 3.4 プリセット一覧画面
 
 **機能**:
+
 - 全20個のプリセットをグリッド/リスト表示
 - 各プリセットのカラープレビュー
 - タップで選択・編集
 - 長押しで削除（初期値に戻す）
 
 **UI要素**:
+
 ```
 ┌─────────────────────────────────┐
 │  プリセット一覧                 │
@@ -271,6 +270,7 @@ data class PresetData(
 ### 4.3 通信フロー
 
 **接続フロー**:
+
 ```
 1. BluetoothDevice.connectGatt()
 2. onConnectionStateChange(STATE_CONNECTED)
@@ -282,6 +282,7 @@ data class PresetData(
 ```
 
 **プリセット書き込みフロー**:
+
 ```
 1. UIから保存リクエスト
 2. writePreset(preset=5, r=255, g=128, b=0, w=0)
@@ -293,6 +294,7 @@ data class PresetData(
 ```
 
 **プレビュー送信フロー**:
+
 ```
 1. カラーピッカー操作
 2. sendPreviewColor(r=100, g=200, b=50, w=30)
@@ -303,6 +305,7 @@ data class PresetData(
 ```
 
 **通知受信フロー**:
+
 ```
 1. onCharacteristicChanged()コールバック
 2. UUIDで判定 (currentPresetUuid or batteryLevelUuid)
@@ -390,10 +393,12 @@ class PenlightRepository(
 ### 6.2 ランタイム権限リクエスト
 
 **Android 12以上**:
+
 - `BLUETOOTH_SCAN`
 - `BLUETOOTH_CONNECT`
 
 **Android 11以下**:
+
 - `ACCESS_FINE_LOCATION` (BLEスキャンに必須)
 
 **実装例**:
