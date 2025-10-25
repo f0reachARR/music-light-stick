@@ -32,14 +32,15 @@ static const struct pwm_dt_spec pwm_g = PWM_DT_SPEC_GET(DT_ALIAS(pwm_led_g));
 static const struct pwm_dt_spec pwm_b = PWM_DT_SPEC_GET(DT_ALIAS(pwm_led_b));
 static const struct pwm_dt_spec pwm_w = PWM_DT_SPEC_GET(DT_ALIAS(pwm_led_w));
 
-// Device tree spec for button
-static const struct gpio_dt_spec button_spec = GPIO_DT_SPEC_GET(DT_ALIAS(button0), gpios);
+// Device tree specs for buttons
+static const struct gpio_dt_spec button_next_spec = GPIO_DT_SPEC_GET(DT_ALIAS(button0), gpios);
+static const struct gpio_dt_spec button_prev_spec = GPIO_DT_SPEC_GET(DT_ALIAS(button1), gpios);
 
 // Global instances
 static LEDController led_controller(&pwm_r, &pwm_g, &pwm_b, &pwm_w);
 static PresetManager preset_manager;
 static PreviewManager preview_manager;
-static ButtonHandler button_handler(&button_spec);
+static DualButtonHandler button_handler(&button_next_spec, &button_prev_spec);
 static EffectEngine effect_engine;
 
 // BLE Advertisement data
@@ -61,8 +62,11 @@ static void on_preset_read(uint8_t preset);
 static void on_preview_color(const Effect & effect);
 static void on_exit_preview();
 static uint8_t on_current_preset_read();
-static void on_button_pressed(void * user_data);
+static void on_button_pressed(ButtonId button_id, void * user_data);
 static void on_button_pressed_worker(struct k_work * work);
+
+// Store which button was pressed for the work handler
+static ButtonId last_button_pressed;
 static void on_preview_timeout(void * user_data);
 
 K_WORK_DEFINE(button_work, on_button_pressed_worker);
@@ -237,22 +241,33 @@ static void on_exit_preview()
 
 static uint8_t on_current_preset_read() { return preset_manager.get_current_preset(); }
 
-static void on_button_pressed(void * user_data)
+static void on_button_pressed(ButtonId button_id, void * user_data)
 {
-  printk("Button pressed (from callback)\n");
+  printk("Button pressed: %s (from callback)\n",
+    button_id == ButtonId::BUTTON_NEXT ? "NEXT" : "PREV");
+
+  // Store which button was pressed
+  last_button_pressed = button_id;
   k_work_submit(&button_work);
 }
 
 static void on_button_pressed_worker(struct k_work * work)
 {
-  printk("Button pressed\n");
+  printk("Button pressed worker: %s\n",
+    last_button_pressed == ButtonId::BUTTON_NEXT ? "NEXT" : "PREV");
 
   // If in preview mode, exit it
   if (preview_manager.is_in_preview_mode()) {
     preview_manager.exit_preview_mode();
   } else {
-    // Otherwise, advance to next preset
-    preset_manager.next_preset();
+    // Otherwise, change preset based on button
+    if (last_button_pressed == ButtonId::BUTTON_NEXT) {
+      preset_manager.next_preset();
+      printk("Next preset: %d\n", preset_manager.get_current_preset());
+    } else {
+      preset_manager.prev_preset();
+      printk("Prev preset: %d\n", preset_manager.get_current_preset());
+    }
   }
 
   update_led_display();

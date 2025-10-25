@@ -53,6 +53,15 @@ public:
 
   void next_preset() { current_preset_ = (current_preset_ + 1) % PRESET_COUNT; }
 
+  void prev_preset()
+  {
+    if (current_preset_ == 0) {
+      current_preset_ = PRESET_COUNT - 1;
+    } else {
+      current_preset_--;
+    }
+  }
+
   Effect get_current_effect() const
   {
     return SettingsManager::instance().read_preset(current_preset_);
