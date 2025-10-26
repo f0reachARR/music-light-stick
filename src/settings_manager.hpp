@@ -35,7 +35,13 @@ public:
 
   int load()
   {
-    int ret = settings_load_subtree(SETTINGS_NAME_PENLIGHT);
+    int ret = settings_register(&settings_handler_);
+    if (ret) {
+      printk("Settings register failed (err %d)\n", ret);
+      return ret;
+    }
+
+    ret = settings_load();
     if (ret) {
       printk("Settings load failed (err %d)\n", ret);
       return ret;
@@ -129,7 +135,7 @@ private:
   static void save_timer_callback(struct k_timer * timer)
   {
     instance().save_all();
-    k_timer_stop(timer);
+    k_timer_stop(&instance().save_timer_);
   }
 
 public:
@@ -168,7 +174,9 @@ public:
 
   static int settings_export(int (*cb)(const char * name, const void * value, size_t val_len))
   {
-    cb(SETTINGS_KEY_PRESETS, instance().presets_, sizeof(instance().presets_));
+    cb(
+      SETTINGS_NAME_PENLIGHT "/" SETTINGS_KEY_PRESETS, instance().presets_,
+      sizeof(instance().presets_));
 
     return 0;
   }
@@ -177,13 +185,9 @@ public:
     .name = SETTINGS_NAME_PENLIGHT,
     .h_get = nullptr,
     .h_set = settings_set,
-    .h_commit = nullptr,
+    .h_commit = settings_commit,
     .h_export = settings_export,
   };
 
   friend class PresetManagerWithSettings;
 };
-
-SETTINGS_STATIC_HANDLER_DEFINE(
-  penlight_settings, SETTINGS_NAME_PENLIGHT, nullptr, &SettingsManager::settings_set,
-  &SettingsManager::settings_commit, &SettingsManager::settings_export);

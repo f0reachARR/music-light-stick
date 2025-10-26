@@ -7,8 +7,9 @@ RGBW LED搭載ペンライトをBluetooth Low Energy (BLE)で制御するAndroid
 ### 1.1 主な機能
 
 - BLE経由でペンライトとの接続・切断
-- カラーピッカーによる色選択とリアルタイムプレビュー
-- 20個のカラープリセットの管理（読み出し・保存・削除）
+- 5種類のエフェクトモード（固定色、レインボー、グラデーション、点滅）
+- エフェクトパラメータの調整とリアルタイムプレビュー
+- 20個のエフェクトプリセットの管理（読み出し・保存・削除）
 - 現在選択中のプリセットの表示
 - バッテリー残量の表示
 - ペンライト本体のボタン操作との同期
@@ -53,7 +54,7 @@ RGBW LED搭載ペンライトをBluetooth Low Energy (BLE)で制御するAndroid
 | 画面名 | 概要 |
 |--------|------|
 | デバイススキャン画面 | BLEデバイスの検索・接続 |
-| メイン画面 | カラー選択・プリセット管理 |
+| メイン画面 | エフェクト選択・パラメータ調整・プリセット管理 |
 | プリセット一覧画面 | 全プリセットの閲覧・編集 |
 | 設定画面（オプション） | アプリ設定 |
 
@@ -99,7 +100,8 @@ RGBW LED搭載ペンライトをBluetooth Low Energy (BLE)で制御するAndroid
 
 **機能**:
 
-- RGBWカラーピッカー
+- エフェクトモード選択（固定色、レインボー、グラデーション、点滅）
+- モード別パラメータ調整UI
 - リアルタイムプレビュー
 - プリセット番号選択（0-19）
 - プリセット保存/読み込み
@@ -113,18 +115,34 @@ RGBW LED搭載ペンライトをBluetooth Low Energy (BLE)で制御するAndroid
 ┌─────────────────────────────────┐
 │  🔋 85%        [切断]            │
 ├─────────────────────────────────┤
+│  エフェクトモード: [固定色 ▼]   │
 │                                 │
 │  ┌─────────────────────────┐    │
 │  │                         │    │
-│  │    カラーピッカー       │    │
-│  │    (RGBW調整)          │    │
+│  │  エフェクトプレビュー    │    │
+│  │  (現在の設定を表示)      │    │
 │  │                         │    │
 │  └─────────────────────────┘    │
 │                                 │
+│  ---- モード別パラメータ ----    │
+│  [固定色の場合]                 │
 │  R: ███████████░░░░░ 180       │
 │  G: █████░░░░░░░░░░░  80       │
 │  B: ███████████████░ 240       │
 │  W: ████░░░░░░░░░░░░  60       │
+│                                 │
+│  [レインボーの場合]              │
+│  速度: ██████░░░░░ 128          │
+│  明るさ: ███████████ 255        │
+│                                 │
+│  [グラデーションの場合]          │
+│  色1: [カラーピッカー]           │
+│  色2: [カラーピッカー]           │
+│  速度: ██████░░░░░ 64           │
+│                                 │
+│  [点滅の場合]                   │
+│  色: [カラーピッカー]            │
+│  周期: ██░░░░░░░░ 10 (1.0秒)   │
 │                                 │
 ├─────────────────────────────────┤
 │  現在のプリセット: [5 ▼]       │
@@ -137,36 +155,53 @@ RGBW LED搭載ペンライトをBluetooth Low Energy (BLE)で制御するAndroid
 
 **動作**:
 
-1. **カラーピッカー操作時**
-   - RGBWスライダー操作でPreview Color送信
-   - 50-100ms間隔で送信（連続送信時）
-   - LEDがリアルタイムで色を反映
+1. **エフェクトモード選択時**
+   - ドロップダウンでモードを選択
+   - 選択したモードに応じたパラメータUIを表示
+   - デフォルトパラメータでプレビュー送信
 
-2. **保存ボタン押下**
-   - 選択中のプリセット番号に現在のRGBW値を書き込み
-   - Preset Write送信: `[preset][R][G][B][W]`
+2. **パラメータ調整時**
+   - スライダー/カラーピッカー操作でPreview Color送信
+   - 50-100ms間隔で送信（連続送信時、debounce適用）
+   - モードに応じた可変長データフォーマットで送信:
+     - 固定色: `[0x00][R][G][B][W]` (5 bytes)
+     - レインボー: `[0x01][Speed][Brightness]` (3 bytes)
+     - グラデーション: `[0x02][R1][G1][B1][W1][R2][G2][B2][W2][Speed]` (10 bytes)
+     - 点滅: `[0x03][R][G][B][W][Period]` (6 bytes)
+   - LEDがリアルタイムでエフェクトを反映
+
+3. **保存ボタン押下**
+   - 選択中のプリセット番号に現在のエフェクト設定を書き込み
+   - Preset Write送信（可変長データ）:
+     - 固定色: `[preset][0x00][R][G][B][W]` (6 bytes)
+     - レインボー: `[preset][0x01][Speed][Brightness]` (4 bytes)
+     - グラデーション: `[preset][0x02][R1][G1][B1][W1][R2][G2][B2][W2][Speed]` (11 bytes)
+     - 点滅: `[preset][0x03][R][G][B][W][Period]` (7 bytes)
    - 保存完了をトースト/Snackbarで通知
 
-3. **プレビュー終了ボタン押下**
+4. **プレビュー終了ボタン押下**
    - Exit Preview送信: `[0x01]`
-   - ペンライトが元のプリセット色に戻る
+   - ペンライトが元のプリセットエフェクトに戻る
 
-4. **プリセット番号変更（ドロップダウン）**
-   - 選択されたプリセット番号の色を読み出し
+5. **プリセット番号変更（ドロップダウン）**
+   - 選択されたプリセット番号のエフェクト設定を読み出し
    - Preset Read送信: `[preset]`
-   - 受信したRGBW値をカラーピッカーに反映
+   - 受信した可変長データをパース:
+     - 先頭バイト（Mode ID）でモードを判定
+     - モードに応じたパラメータをUIに反映
+     - エフェクトモードドロップダウンを更新
 
-5. **Current Preset通知受信時**
+6. **Current Preset通知受信時**
    - ペンライト本体のボタン操作を検知
    - UIのプリセット番号を自動更新
-   - 該当プリセットの色をカラーピッカーに反映
+   - 該当プリセットのエフェクト設定を読み出してUIに反映
 
 ### 3.4 プリセット一覧画面
 
 **機能**:
 
 - 全20個のプリセットをグリッド/リスト表示
-- 各プリセットのカラープレビュー
+- 各プリセットのエフェクトプレビュー（固定色のみカラー表示、それ以外はアイコン）
 - タップで選択・編集
 - 長押しで削除（初期値に戻す）
 
@@ -178,12 +213,12 @@ RGBW LED搭載ペンライトをBluetooth Low Energy (BLE)で制御するAndroid
 ├─────────────────────────────────┤
 │  ┌───┬───┬───┬───┬───┐          │
 │  │ 0 │ 1 │ 2 │ 3 │ 4 │          │
-│  │███│   │███│███│   │          │
-│  │赤 │緑 │黄 │青 │紫 │          │
+│  │███│███│ 🌈 │ ⇄  │ ⚡ │          │
+│  │赤 │緑 │虹 │グラ│点滅│          │
 │  ├───┼───┼───┼───┼───┤          │
 │  │ 5 │ 6 │ 7 │ 8 │ 9 │          │
-│  │███│   │   │   │   │          │
-│  │橙 │   │   │   │   │          │
+│  │███│███│ 🌈 │ ⇄  │   │          │
+│  │青 │橙 │虹 │グラ│   │          │
 │  ├───┼───┼───┼───┼───┤          │
 │  │...│...│...│...│...│          │
 │  └───┴───┴───┴───┴───┘          │
@@ -196,15 +231,19 @@ RGBW LED搭載ペンライトをBluetooth Low Energy (BLE)で制御するAndroid
 
 1. **画面表示時**
    - 全プリセット（0-19）をPreset Readで順次読み出し
-   - 各カードに色をプレビュー表示
+   - 受信データからモードを判定:
+     - Mode 0x00（固定色）: カラーブロックで表示
+     - Mode 0x01（レインボー）: 🌈アイコンで表示
+     - Mode 0x02（グラデーション）: ⇄アイコンで表示
+     - Mode 0x03（点滅）: ⚡アイコンで表示
 
 2. **プリセットタップ**
    - メイン画面に戻り、該当プリセットを選択状態に
-   - カラーピッカーに色を反映
+   - エフェクト設定をUIに反映
 
 3. **プリセット長押し**
    - 削除確認ダイアログ表示
-   - 削除実行: `[preset][0x00][0x00][0x00][0x00]` で初期化
+   - 削除実行: `[preset][0x00][0x00][0x00][0x00][0x00]` で固定色・黒に初期化
 
 ---
 
@@ -212,15 +251,15 @@ RGBW LED搭載ペンライトをBluetooth Low Energy (BLE)で制御するAndroid
 
 ### 4.1 対応サービス・キャラクタリスティック
 
-| 名称 | UUID | Property | 説明 |
-|------|------|----------|------|
-| Penlight Control Service | `0000ff00-0000-1000-8000-00805f9b34fb` | - | メインサービス |
-| Preset Write | `0000ff01-...` | Write | プリセット書き込み |
-| Preset Read | `0000ff02-...` | Read, Write | プリセット読み出し |
-| Preview Color | `0000ff03-...` | Write | カラープレビュー |
-| Current Preset | `0000ff04-...` | Read, Notify | 現在のプリセット |
-| Exit Preview | `0000ff05-...` | Write | プレビュー終了 |
-| Battery Level | `0000ff06-...` | Read, Notify | バッテリー残量 |
+| 名称 | UUID | Property | サイズ | 説明 |
+|------|------|----------|--------|------|
+| Penlight Control Service | `0000ff00-0000-1000-8000-00805f9b34fb` | - | - | メインサービス |
+| Preset Write | `0000ff01-...` | Write | 2-11 bytes | プリセット書き込み（可変長） |
+| Preset Read | `0000ff02-...` | Read, Write | 1/1-10 bytes | プリセット読み出し（可変長） |
+| Preview Color | `0000ff03-...` | Write | 1-10 bytes | エフェクトプレビュー（可変長） |
+| Current Preset | `0000ff04-...` | Read, Notify | 1 byte | 現在のプリセット |
+| Exit Preview | `0000ff05-...` | Write | 1 byte | プレビュー終了 |
+| Battery Level | `0000ff06-...` | Read, Notify | 1 byte | バッテリー残量 |
 
 ### 4.2 BLE Service実装概要
 
@@ -241,9 +280,9 @@ class PenlightBleService {
 
     suspend fun connect(device: BluetoothDevice): Result<Unit>
     suspend fun disconnect()
-    suspend fun writePreset(preset: Int, r: Int, g: Int, b: Int, w: Int): Result<Unit>
-    suspend fun readPreset(preset: Int): Result<RgbwColor>
-    suspend fun sendPreviewColor(r: Int, g: Int, b: Int, w: Int): Result<Unit>
+    suspend fun writePreset(preset: Int, effect: EffectData): Result<Unit>
+    suspend fun readPreset(preset: Int): Result<EffectData>
+    suspend fun sendPreviewEffect(effect: EffectData): Result<Unit>
     suspend fun exitPreview(): Result<Unit>
     suspend fun readBatteryLevel(): Result<Int>
     fun observeCurrentPreset(): Flow<Int>
@@ -254,6 +293,15 @@ class PenlightBleService {
 **データクラス**:
 
 ```kotlin
+// エフェクトモード定義
+enum class EffectMode(val modeId: Int) {
+    SOLID(0x00),      // 固定色
+    RAINBOW(0x01),    // レインボー
+    GRADIENT(0x02),   // グラデーション
+    BLINK(0x03)       // 点滅
+}
+
+// RGBW色データ
 data class RgbwColor(
     val r: Int, // 0-255
     val g: Int, // 0-255
@@ -261,9 +309,47 @@ data class RgbwColor(
     val w: Int  // 0-255
 )
 
+// エフェクトデータ（sealed class）
+sealed class EffectData {
+    abstract val mode: EffectMode
+
+    // 固定色モード
+    data class Solid(
+        val color: RgbwColor
+    ) : EffectData() {
+        override val mode = EffectMode.SOLID
+    }
+
+    // レインボーモード
+    data class Rainbow(
+        val speed: Int,      // 1-255
+        val brightness: Int  // 0-255
+    ) : EffectData() {
+        override val mode = EffectMode.RAINBOW
+    }
+
+    // グラデーションモード
+    data class Gradient(
+        val color1: RgbwColor,
+        val color2: RgbwColor,
+        val speed: Int       // 1-255
+    ) : EffectData() {
+        override val mode = EffectMode.GRADIENT
+    }
+
+    // 点滅モード
+    data class Blink(
+        val color: RgbwColor,
+        val period: Int      // 1-255 (単位: 100ms)
+    ) : EffectData() {
+        override val mode = EffectMode.BLINK
+    }
+}
+
+// プリセットデータ
 data class PresetData(
     val presetNumber: Int, // 0-19
-    val color: RgbwColor
+    val effect: EffectData
 )
 ```
 
@@ -284,9 +370,11 @@ data class PresetData(
 **プリセット書き込みフロー**:
 
 ```
-1. UIから保存リクエスト
-2. writePreset(preset=5, r=255, g=128, b=0, w=0)
-3. ByteArray[5] = [0x05, 0xFF, 0x80, 0x00, 0x00]
+1. UIから保存リクエスト（例: 固定色）
+2. writePreset(preset=5, effect=Solid(RgbwColor(255, 128, 0, 0)))
+3. EffectDataをByteArrayに変換:
+   - 固定色の場合: [preset][mode][R][G][B][W]
+   - ByteArray[6] = [0x05, 0x00, 0xFF, 0x80, 0x00, 0x00]
 4. BluetoothGattCharacteristic.setValue(data)
 5. BluetoothGatt.writeCharacteristic()
 6. onCharacteristicWrite()コールバック
@@ -296,12 +384,28 @@ data class PresetData(
 **プレビュー送信フロー**:
 
 ```
-1. カラーピッカー操作
-2. sendPreviewColor(r=100, g=200, b=50, w=30)
-3. ByteArray[4] = [0x64, 0xC8, 0x32, 0x1E]
+1. エフェクトパラメータ操作（例: レインボー）
+2. sendPreviewEffect(effect=Rainbow(speed=128, brightness=255))
+3. EffectDataをByteArrayに変換:
+   - レインボーの場合: [mode][Speed][Brightness]
+   - ByteArray[3] = [0x01, 0x80, 0xFF]
 4. BluetoothGattCharacteristic.setValue(data)
 5. BluetoothGatt.writeCharacteristic()
-6. (連続送信時は前回の完了を待つ)
+6. (連続送信時は前回の完了を待つ、debounce適用)
+```
+
+**プリセット読み出しフロー**:
+
+```
+1. UIからプリセット読み出しリクエスト
+2. readPreset(preset=5)
+3. Write操作でプリセット番号を送信: [0x05]
+4. Read操作で可変長データを受信
+5. 受信データをパース:
+   - 先頭バイト(Mode ID)でモードを判定
+   - モードに応じたEffectDataオブジェクトを生成
+   例: [0x01, 0x80, 0xFF] → Rainbow(speed=128, brightness=255)
+6. EffectDataを返す
 ```
 
 **通知受信フロー**:
@@ -329,15 +433,17 @@ class MainViewModel : ViewModel() {
     // UI State
     val connectionState: StateFlow<ConnectionState>
     val currentPreset: StateFlow<Int>
-    val currentColor: StateFlow<RgbwColor>
+    val currentEffect: StateFlow<EffectData>
+    val selectedMode: StateFlow<EffectMode>
     val batteryLevel: StateFlow<Int>
     val presets: StateFlow<List<PresetData>>
 
     // Actions
     fun connect(device: BluetoothDevice)
     fun disconnect()
-    fun updatePreviewColor(color: RgbwColor)
-    fun saveToPreset(preset: Int, color: RgbwColor)
+    fun selectEffectMode(mode: EffectMode)
+    fun updateEffectParameters(effect: EffectData)
+    fun saveToPreset(preset: Int, effect: EffectData)
     fun loadPreset(preset: Int)
     fun exitPreview()
     fun loadAllPresets()
@@ -360,8 +466,8 @@ class PenlightRepository(
     private val bleService: PenlightBleService
 ) {
     suspend fun writePreset(presetData: PresetData): Result<Unit>
-    suspend fun readPreset(presetNumber: Int): Result<RgbwColor>
-    suspend fun previewColor(color: RgbwColor): Result<Unit>
+    suspend fun readPreset(presetNumber: Int): Result<EffectData>
+    suspend fun previewEffect(effect: EffectData): Result<Unit>
     suspend fun exitPreview(): Result<Unit>
     fun observeCurrentPreset(): Flow<Int>
     fun observeBatteryLevel(): Flow<Int>
@@ -463,29 +569,39 @@ suspend fun writeWithRetry(
 
 ## 8. UI/UX仕様
 
-### 8.1 カラーピッカー
+### 8.1 エフェクトUI
 
 **実装オプション**:
 
-1. **4本のスライダー方式**（推奨）
-   - R, G, B, W 各チャンネルを独立スライダーで調整
+1. **固定色モード**
+   - 4本のスライダー方式（R, G, B, W）
    - 各スライダー: 0-255の範囲
-   - リアルタイムプレビュー表示
+   - カラーホイール + Wスライダー も可
 
-2. **RGBカラーホイール + Wスライダー**
-   - RGBはカラーホイールで選択
-   - Wは独立スライダー
+2. **レインボーモード**
+   - 速度スライダー（1-255）
+   - 明るさスライダー（0-255）
+
+3. **グラデーションモード**
+   - 色1のカラーピッカー（RGBW）
+   - 色2のカラーピッカー（RGBW）
+   - 速度スライダー（1-255）
+
+4. **点滅モード**
+   - カラーピッカー（RGBW）
+   - 周期スライダー（1-255、0.1秒〜25.5秒）
+   - 秒数表示: `period * 0.1`
 
 **プレビュー送信の最適化**:
 
 ```kotlin
-val colorFlow = MutableStateFlow(RgbwColor(0, 0, 0, 0))
+val effectFlow = MutableStateFlow<EffectData>(EffectData.Solid(RgbwColor(0, 0, 0, 0)))
 
-colorFlow
+effectFlow
     .debounce(100) // 100ms間隔で間引き
     .distinctUntilChanged()
-    .collect { color ->
-        bleService.sendPreviewColor(color.r, color.g, color.b, color.w)
+    .collect { effect ->
+        bleService.sendPreviewEffect(effect)
     }
 ```
 
@@ -616,9 +732,10 @@ dependencies {
 ### 12.1 追加機能候補
 
 - **プリセット共有**: JSON/QRコードで他ユーザーと共有
-- **カラーパレット**: よく使う色をお気に入り登録
-- **パターンモード**: 点滅、グラデーションパターンの作成・送信
+- **エフェクトのお気に入り**: よく使うエフェクト設定をお気に入り登録
+- **追加エフェクトモード**: ストロボ、パルス、ウェーブなど（ファームウェア拡張に対応）
 - **複数デバイス制御**: 同時に複数のペンライトを制御
+- **音楽連動**: マイク入力でビート検出、音楽同期
 - **OTA更新対応**: ファームウェア更新機能
 
 ### 12.2 UI改善
@@ -689,18 +806,11 @@ fun connect(device: BluetoothDevice) {
 **プリセット書き込みサンプル**:
 
 ```kotlin
-suspend fun writePreset(preset: Int, r: Int, g: Int, b: Int, w: Int): Result<Unit> {
+suspend fun writePreset(preset: Int, effect: EffectData): Result<Unit> {
     val service = bluetoothGatt?.getService(serviceUuid) ?: return Result.failure(Exception("Service not found"))
     val characteristic = service.getCharacteristic(presetWriteUuid) ?: return Result.failure(Exception("Characteristic not found"))
 
-    val data = byteArrayOf(
-        preset.toByte(),
-        r.toByte(),
-        g.toByte(),
-        b.toByte(),
-        w.toByte()
-    )
-
+    val data = encodeEffectData(preset, effect)
     characteristic.value = data
 
     return suspendCoroutine { continuation ->
@@ -712,6 +822,119 @@ suspend fun writePreset(preset: Int, r: Int, g: Int, b: Int, w: Int): Result<Uni
         }
     }
 }
+
+// エフェクトデータをByteArrayに変換
+private fun encodeEffectData(preset: Int?, effect: EffectData): ByteArray {
+    return when (effect) {
+        is EffectData.Solid -> {
+            if (preset != null) {
+                // Preset Write: [preset][mode][R][G][B][W]
+                byteArrayOf(
+                    preset.toByte(),
+                    0x00,
+                    effect.color.r.toByte(),
+                    effect.color.g.toByte(),
+                    effect.color.b.toByte(),
+                    effect.color.w.toByte()
+                )
+            } else {
+                // Preview: [mode][R][G][B][W]
+                byteArrayOf(
+                    0x00,
+                    effect.color.r.toByte(),
+                    effect.color.g.toByte(),
+                    effect.color.b.toByte(),
+                    effect.color.w.toByte()
+                )
+            }
+        }
+        is EffectData.Rainbow -> {
+            if (preset != null) {
+                // Preset Write: [preset][mode][Speed][Brightness]
+                byteArrayOf(preset.toByte(), 0x01, effect.speed.toByte(), effect.brightness.toByte())
+            } else {
+                // Preview: [mode][Speed][Brightness]
+                byteArrayOf(0x01, effect.speed.toByte(), effect.brightness.toByte())
+            }
+        }
+        is EffectData.Gradient -> {
+            val base = listOf(
+                0x02.toByte(),
+                effect.color1.r.toByte(), effect.color1.g.toByte(), effect.color1.b.toByte(), effect.color1.w.toByte(),
+                effect.color2.r.toByte(), effect.color2.g.toByte(), effect.color2.b.toByte(), effect.color2.w.toByte(),
+                effect.speed.toByte()
+            )
+            if (preset != null) {
+                // Preset Write: [preset][mode][...]
+                byteArrayOf(preset.toByte(), *base.toByteArray())
+            } else {
+                // Preview: [mode][...]
+                base.toByteArray()
+            }
+        }
+        is EffectData.Blink -> {
+            if (preset != null) {
+                // Preset Write: [preset][mode][R][G][B][W][Period]
+                byteArrayOf(
+                    preset.toByte(), 0x03,
+                    effect.color.r.toByte(), effect.color.g.toByte(), effect.color.b.toByte(), effect.color.w.toByte(),
+                    effect.period.toByte()
+                )
+            } else {
+                // Preview: [mode][R][G][B][W][Period]
+                byteArrayOf(
+                    0x03,
+                    effect.color.r.toByte(), effect.color.g.toByte(), effect.color.b.toByte(), effect.color.w.toByte(),
+                    effect.period.toByte()
+                )
+            }
+        }
+    }
+}
+
+// ByteArrayからエフェクトデータをデコード
+private fun decodeEffectData(data: ByteArray): EffectData {
+    val mode = data[0].toInt() and 0xFF
+    return when (mode) {
+        0x00 -> EffectData.Solid(
+            RgbwColor(
+                r = data[1].toInt() and 0xFF,
+                g = data[2].toInt() and 0xFF,
+                b = data[3].toInt() and 0xFF,
+                w = data[4].toInt() and 0xFF
+            )
+        )
+        0x01 -> EffectData.Rainbow(
+            speed = data[1].toInt() and 0xFF,
+            brightness = data[2].toInt() and 0xFF
+        )
+        0x02 -> EffectData.Gradient(
+            color1 = RgbwColor(
+                r = data[1].toInt() and 0xFF,
+                g = data[2].toInt() and 0xFF,
+                b = data[3].toInt() and 0xFF,
+                w = data[4].toInt() and 0xFF
+            ),
+            color2 = RgbwColor(
+                r = data[5].toInt() and 0xFF,
+                g = data[6].toInt() and 0xFF,
+                b = data[7].toInt() and 0xFF,
+                w = data[8].toInt() and 0xFF
+            ),
+            speed = data[9].toInt() and 0xFF
+        )
+        0x03 -> EffectData.Blink(
+            color = RgbwColor(
+                r = data[1].toInt() and 0xFF,
+                g = data[2].toInt() and 0xFF,
+                b = data[3].toInt() and 0xFF,
+                w = data[4].toInt() and 0xFF
+            ),
+            period = data[5].toInt() and 0xFF
+        )
+        else -> throw IllegalArgumentException("Unknown effect mode: $mode")
+    }
+}
 ```
 
 ---
@@ -721,3 +944,4 @@ suspend fun writePreset(preset: Int, r: Int, g: Int, b: Int, w: Int): Result<Uni
 | バージョン | 日付 | 変更内容 |
 |-----------|------|---------|
 | 1.0 | 2025-10-19 | 初版作成 |
+| 2.0 | 2025-10-25 | エフェクトモード機能追加（固定色/レインボー/グラデーション/点滅）<br>可変長データフォーマット対応<br>UI設計・サンプルコードを更新 |
