@@ -1,0 +1,4 @@
+*.bak
+production/
+*.lck
+*-backups
