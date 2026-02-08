@@ -28,13 +28,13 @@
 		compatible = "gpio-keys";
 
 		button0: button_0 {
-			gpios = <&gpio0 0 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+			gpios = <&gpio1 4 GPIO_ACTIVE_HIGH>;
 			label = "Push button switch 0 (Next)";
 			zephyr,code = <INPUT_KEY_0>;
 		};
 
 		button1: button_1 {
-			gpios = <&gpio0 1 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+			gpios = <&gpio1 5 GPIO_ACTIVE_HIGH>;
 			label = "Push button switch 1 (Prev)";
 			zephyr,code = <INPUT_KEY_1>;
 		};
@@ -45,8 +45,8 @@
 		pwm-led-g = &pwm_led_g;
 		pwm-led-b = &pwm_led_b;
 		pwm-led-w = &pwm_led_w;
-		button0 = &button0;
-		button1 = &button1;
+		button-next = &button0;
+		button-prev = &button1;
 	};
 };
 
